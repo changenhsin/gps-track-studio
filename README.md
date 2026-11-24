@@ -1,21 +1,32 @@
 # GPS Track Studio
 
+**Version:** `v0.1.0` · **Status:** BETA
+
 A lightweight Traditional Chinese, browser-based GPS track viewer and basic editor. The static application reads track files locally in the browser; it does not upload GPS records to an application server.
+
+## Release status
+
+GPS Track Studio is currently an early **BETA** release. The interface and editing workflow may change as the project develops.
 
 ## Features
 
 - Import NMEA (`.nmea`, `.log`, `.txt`), GPX and KML files
 - View multiple tracks on an interactive map
-- Toggle track visibility, select tracks and change track colors
+- Toggle track visibility independently from the active track selection
+- Select one track by clicking its row; use Ctrl/⌘ click or Shift click for multi-selection
+- Choose from a fixed color palette or set a custom RGB/HEX color
+- Delete individual tracks from the track list
 - Display start and end markers
 - Merge selected tracks
 - Reverse point order
 - Split a track at a selected point on the map
 - Shift timestamps by a chosen number of minutes
-- Export tracks to GPX and KML
+- Export tracks to GPX and KML from one menu in the top toolbar; selected tracks are exported when present, otherwise all tracks are exported
+- Show point count, track distance, start time and end time in the track list
+- Display track timestamps in the system time zone by default, with a selectable IANA time zone override
 - Print the map view
 - Display a coordinate grid, cursor coordinates and a nautical-mile scale
-- Store available timestamps as UTC and show list times in Asia/Taipei (UTC+8)
+- Store available timestamps as UTC; changing the display time zone only changes presentation, not the underlying timestamps
 
 ## Basemap and attribution
 
