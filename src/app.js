@@ -989,6 +989,16 @@
       if (event.dataTransfer.files.length) loadFiles(Array.from(event.dataTransfer.files));
     });
 
+    document.addEventListener("click", (event) => {
+      const dropdown = $("languageDropdown");
+      if (dropdown.open && !dropdown.contains(event.target)) dropdown.open = false;
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && $("languageDropdown").open) {
+        $("languageDropdown").open = false;
+        $("languageButton").focus();
+      }
+    });
     $("fitAllBtn").onclick = fitAll;
     $("languageZhBtn").onclick = () => setLanguage("zh-TW");
     $("languageEnBtn").onclick = () => setLanguage("en");
