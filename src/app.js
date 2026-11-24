@@ -799,120 +799,72 @@
     return (value >= 0 ? positive : negative) + " " + deg + "° " + min + "'";
   }
 
-  // Keep the exact geographic extent visible on screen when the print page
-  // changes the map container's aspect ratio, then restore the original camera.
-  let printSnapshot = null;
+  // Print an exact snapshot of the currently rendered map. This avoids
+  // changing MapLibre's viewport to fit a different paper aspect ratio.
+  let activePrintSheet = null;
 
-  function preparePrintLayout() {
-    if (!map || printSnapshot) return;
-
-    const center = map.getCenter();
-    const bounds = map.getBounds();
-    printSnapshot = {
-      camera: {
-        center: [center.lng, center.lat],
-        zoom: map.getZoom(),
-        bearing: map.getBearing(),
-        pitch: map.getPitch()
-      },
-      bounds: bounds.toArray()
-    };
-
-    document.documentElement.classList.add("print-layout");
-    map.resize();
-
-    try {
-      const visibleBounds = new maplibregl.LngLatBounds(
-        printSnapshot.bounds[0],
-        printSnapshot.bounds[1]
-      );
-      const fittedCamera = map.cameraForBounds(visibleBounds, {
-        padding: 0,
-        bearing: printSnapshot.camera.bearing,
-        pitch: printSnapshot.camera.pitch,
-        maxZoom: map.getMaxZoom()
-      });
-
-      if (fittedCamera) {
-        map.jumpTo({
-          center: fittedCamera.center,
-          zoom: fittedCamera.zoom,
-          bearing: printSnapshot.camera.bearing,
-          pitch: printSnapshot.camera.pitch
-        });
-      } else {
-        map.jumpTo(printSnapshot.camera);
-      }
-    } catch (_) {
-      // If bounds fitting is unavailable, at least retain the original camera.
-      map.jumpTo(printSnapshot.camera);
+  function removePrintSheet() {
+    if (activePrintSheet) {
+      activePrintSheet.remove();
+      activePrintSheet = null;
     }
-
-    map.triggerRepaint();
-  }
-
-  function restoreMapAfterPrint() {
-    if (!printSnapshot) {
-      document.documentElement.classList.remove("print-layout");
-      return;
-    }
-
-    const snapshot = printSnapshot;
-    printSnapshot = null;
-    document.documentElement.classList.remove("print-layout");
-
-    requestAnimationFrame(() => {
-      if (!map) return;
-      map.resize();
-      map.jumpTo(snapshot.camera);
-      map.triggerRepaint();
-    });
   }
 
   function printMap() {
     if (!map) {
-      window.print();
+      status("地圖尚未準備完成，請稍後再試。", true);
       return;
     }
 
-    preparePrintLayout();
-
-    let started = false;
+    removePrintSheet();
+    let completed = false;
     let fallbackTimer = null;
-    const startPrint = () => {
-      if (started) return;
-      started = true;
-      if (fallbackTimer !== null) window.clearTimeout(fallbackTimer);
-      window.print();
-    };
 
-    // Give the resized canvas a render cycle before the browser captures it.
-    requestAnimationFrame(() => {
-      if (!map || !map.isStyleLoaded()) {
-        startPrint();
+    const captureAndPrint = () => {
+      if (completed) return;
+      completed = true;
+      if (fallbackTimer !== null) window.clearTimeout(fallbackTimer);
+      map.off("idle", captureAndPrint);
+
+      let imageUrl;
+      try {
+        imageUrl = map.getCanvas().toDataURL("image/png");
+      } catch (error) {
+        status("無法擷取目前地圖畫面，請重新整理後再試。", true);
         return;
       }
-      map.once("idle", startPrint);
-      fallbackTimer = window.setTimeout(startPrint, 2000);
-      map.triggerRepaint();
-    });
-  }
 
-  function installPrintHandlers() {
-    window.addEventListener("beforeprint", preparePrintLayout);
-    window.addEventListener("afterprint", restoreMapAfterPrint);
+      const sheet = document.createElement("section");
+      sheet.id = "printSheet";
+      const image = document.createElement("img");
+      image.alt = "GPS 軌跡地圖列印畫面";
+      const attribution = document.createElement("div");
+      attribution.className = "print-attribution";
+      attribution.textContent = $("mapNote").textContent || "© OpenStreetMap contributors";
+      sheet.append(image, attribution);
+      document.body.append(sheet);
+      activePrintSheet = sheet;
 
-    const printMedia = window.matchMedia("(print)");
-    const handlePrintMediaChange = (event) => {
-      if (event.matches) preparePrintLayout();
-      else restoreMapAfterPrint();
+      const cleanup = () => {
+        if (activePrintSheet === sheet) removePrintSheet();
+        window.removeEventListener("afterprint", cleanup);
+      };
+      window.addEventListener("afterprint", cleanup);
+
+      image.addEventListener("load", () => {
+        requestAnimationFrame(() => window.print());
+      }, { once: true });
+      image.addEventListener("error", () => {
+        cleanup();
+        status("地圖列印影像載入失敗，請再試一次。", true);
+      }, { once: true });
+      image.src = imageUrl;
     };
 
-    if (typeof printMedia.addEventListener === "function") {
-      printMedia.addEventListener("change", handlePrintMediaChange);
-    } else if (typeof printMedia.addListener === "function") {
-      printMedia.addListener(handlePrintMediaChange);
-    }
+    // Wait for the current map frame to finish before capturing the canvas.
+    map.once("idle", captureAndPrint);
+    fallbackTimer = window.setTimeout(captureAndPrint, 2000);
+    map.triggerRepaint();
   }
 
   function initMap() {
@@ -926,9 +878,9 @@
       center: [121, 23.5],
       zoom: 6,
       attributionControl: true,
-      cooperativeGestures: true
+      cooperativeGestures: true,
+      preserveDrawingBuffer: true
     });
-    installPrintHandlers();
     map.addControl(new maplibregl.NavigationControl(), "top-left");
     map.addControl(new maplibregl.ScaleControl({ unit: "nautical" }), "bottom-left");
     const canvasContainer = map.getCanvasContainer();
