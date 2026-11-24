@@ -23,6 +23,10 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+      - name: Validate application JavaScript
+        run: node --check src/app.js
+      - name: Verify static site files
+        run: test -f index.html && test -f src/style.css
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
       - name: Upload static site
