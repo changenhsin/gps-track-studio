@@ -28,7 +28,8 @@
     $("languageEnBtn").setAttribute("aria-pressed", language === "en" ? "true" : "false");
     timeFormatter = createTimeFormatter();
     initializeTimeZones();
-    if (lastStatus) { $("statusMessage").textContent = t(lastStatus.key, lastStatus.values); $("statusMessage").style.color = lastStatus.bad ? "#a63d3d" : ""; }
+    if (lastStatus) renderStatus();
+
     if ($("trackList")) render();
   }
   function setLanguage(nextLanguage) {
@@ -155,10 +156,38 @@
     render();
   }
 
+  function renderStatus() {
+    if (!lastStatus) return;
+    let message;
+    if (lastStatus.key === "importSummary") {
+      const values = lastStatus.values;
+      message = t("importResult", { count: values.count });
+      if (values.warnings.length) {
+        message += "\\n" + values.warnings.map((item) =>
+          t("fileWarning", { name: item.name, message: item.key ? t(item.key) : item.message })
+        ).join("\\n");
+      }
+      if (values.errors.length) {
+        message += "\\n" + t("importFailed") + "\\n" + values.errors.map((item) =>
+          t("fileError", { name: item.name, message: item.key ? t(item.key) : item.message })
+        ).join("\\n");
+      }
+    } else {
+      message = t(lastStatus.key, lastStatus.values);
+    }
+    $("statusMessage").textContent = message;
+    $("statusMessage").style.color = lastStatus.bad ? "#a63d3d" : "";
+  }
+
   function status(key, bad, values) {
     lastStatus = { key, bad: Boolean(bad), values: values || null };
-    $("statusMessage").textContent = t(key, values);
-    $("statusMessage").style.color = bad ? "#a63d3d" : "";
+    renderStatus();
+  }
+
+  function localizedError(key) {
+    const error = new Error(t(key));
+    error.translationKey = key;
+    return error;
   }
 
   function makeId() {
@@ -267,13 +296,13 @@
     }
 
     const result = Array.from(points.values()).sort((a, b) => a.time - b.time);
-    if (!result.length) throw new Error(t("nmeaNoValid"));
-    return { points: result, warning: usedFallbackDate ? t("nmeaNoDateWarning") : "" };
+    if (!result.length) throw localizedError("nmeaNoValid");
+    return { points: result, warning: usedFallbackDate ? "nmeaNoDateWarning" : "" };
   }
 
   function parseGpx(text, filename) {
     const doc = new DOMParser().parseFromString(text, "application/xml");
-    if (doc.querySelector("parsererror")) throw new Error(t("gpxXmlError"));
+    if (doc.querySelector("parsererror")) throw localizedError("gpxXmlError");
     const toPoint = (node) => {
       const lat = Number(node.getAttribute("lat"));
       const lon = Number(node.getAttribute("lon"));
@@ -298,13 +327,13 @@
       const points = nodes.map(toPoint).filter(validPoint);
       if (points.length) result.push({ name: filename, points });
     }
-    if (!result.length) throw new Error(t("gpxNoTrack"));
+    if (!result.length) throw localizedError("gpxNoTrack");
     return result;
   }
 
   function parseKml(text, filename) {
     const doc = new DOMParser().parseFromString(text, "application/xml");
-    if (doc.querySelector("parsererror")) throw new Error(t("kmlXmlError"));
+    if (doc.querySelector("parsererror")) throw localizedError("kmlXmlError");
     const lines = Array.from(doc.getElementsByTagNameNS("*", "LineString"));
     const result = [];
     lines.forEach((line, index) => {
@@ -316,13 +345,13 @@
       }).filter(validPoint);
       if (points.length) result.push({ name: lines.length > 1 ? filename + " (" + (index + 1) + ")" : filename, points });
     });
-    if (!result.length) throw new Error(t("kmlNoLine"));
+    if (!result.length) throw localizedError("kmlNoLine");
     return result;
   }
 
   function addTrack(name, points) {
     const clean = points.filter(validPoint);
-    if (!clean.length) throw new Error(t("noValidTrack"));
+    if (!clean.length) throw localizedError("noValidTrack");
     tracks.push({
       id: makeId(), name: name, points: clean,
       color: colors[colorIndex++ % colors.length],
@@ -344,19 +373,16 @@
         else {
           const result = parseNmea(text);
           parsed = [{ name: file.name, points: result.points }];
-          if (result.warning) warnings.push(t("fileWarning", { name: file.name, message: result.warning }));
+          if (result.warning) warnings.push({ name: file.name, key: result.warning });
         }
         parsed.forEach((item) => { addTrack(item.name, item.points); imported += 1; });
       } catch (error) {
-        errors.push(t("fileError", { name: file.name, message: error.message }));
+        errors.push({ name: file.name, key: error.translationKey || null, message: error.message });
       }
     }
     render();
     fitAll();
-    let message = t("importResult", { count: imported });
-    if (warnings.length) message += "\n" + warnings.join("\n");
-    if (errors.length) message += "\n" + t("importFailed") + "\n" + errors.join("\n");
-    status(message, errors.length > 0);
+    status("importSummary", errors.length > 0, { count: imported, warnings, errors });
   }
 
   function geojson() {
