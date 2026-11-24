@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#102235">
+  <meta name="description" content="GPS Track Studio — a lightweight browser-based GPS track viewer and editor.">
+  <title>GPS Track Studio</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.1/dist/maplibre-gl.css">
+  <link rel="stylesheet" href="./src/style.css">
+  <script src="https://unpkg.com/maplibre-gl@5.24.1/dist/maplibre-gl.js" defer></script>
+  <script src="./src/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">GT</div>
+      <div>
+        <h1>GPS Track Studio</h1>
+        <p>GPS 軌跡檢視與整理工具</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <button class="button subtle" id="fitAllBtn" type="button">縮放至全部</button>
+      <button class="button subtle" id="exportKmlBtn" type="button" disabled>匯出 KML</button>
+      <button class="button subtle" id="printBtn" type="button">列印地圖</button>
+      <button class="button danger" id="clearAllBtn" type="button">清除全部</button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <aside class="sidebar">
+      <section class="import-card">
+        <div class="section-heading">
+          <div>
+            <h2>匯入航跡</h2>
+            <p>支援多檔案拖放</p>
+          </div>
+          <span class="pill">離線解析</span>
+        </div>
+        <label class="dropzone" id="dropZone" for="fileInput">
+          <input id="fileInput" type="file" accept=".nmea,.log,.txt,.gpx,.kml" multiple>
+          <span class="upload-icon">＋</span>
+          <strong>選擇檔案或拖放到這裡</strong>
+          <small>NMEA / GPX / KML</small>
+        </label>
+        <div id="statusMessage" class="status" role="status">尚未匯入資料</div>
+      </section>
+
+      <section class="tracks-panel">
+        <div class="section-heading track-heading">
+          <div>
+            <h2>軌跡清單</h2>
+            <p id="trackCount">0 條軌跡</p>
+          </div>
+          <button class="icon-button" id="mergeBtn" type="button" title="合併勾選的軌跡" disabled>合併</button>
+        </div>
+        <div id="trackList" class="track-list">
+          <div class="empty-state">匯入檔案後，軌跡會顯示在這裡。</div>
+        </div>
+      </section>
+
+      <section class="tools-panel">
+        <h2>軌跡工具</h2>
+        <div class="tool-grid">
+          <button class="tool-button" id="reverseBtn" type="button" disabled>反轉方向</button>
+          <button class="tool-button" id="shiftTimeBtn" type="button" disabled>調整時間</button>
+          <button class="tool-button" id="splitModeBtn" type="button" disabled>分割模式</button>
+          <button class="tool-button" id="exportAllBtn" type="button" disabled>匯出全部 GPX</button>
+        </div>
+        <p class="hint" id="toolHint">先選取一條軌跡即可使用工具。分割模式下，點選軌跡上的節點可從該點分割。</p>
+      </section>
+
+      <footer class="sidebar-footer">
+        <span>時間資料以 UTC 儲存</span>
+        <span>顯示時區：台北 UTC+8</span>
+      </footer>
+    </aside>
+
+    <section class="map-panel">
+      <div id="map" aria-label="GPS 軌跡地圖"></div>
+      <div class="map-toolbar">
+        <label for="mapStyleSelect">底圖</label>
+        <select id="mapStyleSelect">
+          <option value="liberty">Liberty</option>
+          <option value="bright">Bright</option>
+          <option value="positron">Positron</option>
+        </select>
+        <label class="toggle-label"><input id="gridToggle" type="checkbox" checked> 經緯網格</label>
+      </div>
+      <div class="coordinate-readout" id="coordinateReadout">N --° --.---'　E --° --.---'</div>
+      <div class="map-note" id="mapNote">OpenFreeMap © OpenMapTiles · Data from OpenStreetMap</div>
+    </section>
+  </main>
+
+  <dialog id="timeDialog" class="dialog-card">
+    <form method="dialog" id="timeForm">
+      <h2>調整軌跡時間</h2>
+      <p>輸入正數代表延後，負數代表提前。時間戳仍以 UTC 儲存。</p>
+      <label for="shiftMinutes">平移分鐘數</label>
+      <input id="shiftMinutes" type="number" step="1" value="0" required>
+      <div class="dialog-actions">
+        <button class="button subtle" value="cancel">取消</button>
+        <button class="button primary" id="applyTimeShiftBtn" value="confirm">套用</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="pointDialog" class="dialog-card">
+    <form method="dialog">
+      <h2>分割軌跡</h2>
+      <p id="splitDescription">是否從選取節點分割軌跡？</p>
+      <div class="dialog-actions">
+        <button class="button subtle" value="cancel">取消</button>
+        <button class="button primary" id="confirmSplitBtn" value="confirm">分割</button>
+      </div>
+    </form>
+  </dialog>
+</body>
+</html>
