@@ -1,15 +1,649 @@
 (() => {
-'use strict';
-const $=id=>document.getElementById(id), colors=['#e45757','#2878b8','#169b76','#d99427','#8a63ba','#cf6097'];
-const styles={liberty:'https://tiles.openfreemap.org/styles/liberty',bright:'https://tiles.openfreemap.org/styles/bright',positron:'https://tiles.openfreemap.org/styles/positron'};
-let map,tracks=[],active=null,splitMode=false,pending=null;
-const tz=new Intl.DateTimeFormat('zh-TW',{timeZone:'Asia/Taipei',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false});
-function status(s,bad=false){$('statusMessage').textContent=s;$('statusMessage').style.color=bad?'#a63d3d':'';}
-function coord(v,h,lat){if(!v||!h)return null;let n=+v,d=Math.floor(n/100),m=n-d*100;if(!Number.isFinite(n)||m>=60)return null;let x=d+m/60;if(h==='S'||h==='W')x=-x;return Math.abs(x)>(lat?90:180)?null:x;}
-function date6(s){if(!/^\d{6}$/.test(s||''))return null;let d=+s.slice(0,2),m=+s.slice(2,4),y=+s.slice(4);y+=y>=80?1900:2000;let x=new Date(Date.UTC(y,m-1,d));return x.getUTCFullYear()===y&&x.getUTCMonth()===m-1&&x.getUTCDate()===d?[y,m,d]:null;}
-function nmea(s){let ls=s.split(/\r?\n/),day=null;for(let l of ls){let p=l.trim().split(',');if(/\$..RMC/.test(l))day=date6(p[9])||day;if(/\$..ZDA/.test(l)&&p[4])day=[+p[4],+p[3],+p[2]];if(day)break;}let now=new Date();day=day||[now.getUTCFullYear(),now.getUTCMonth()+1,now.getUTCDate()];let last=null,pts=new Map();for(let l of ls){let p=l.trim().split(','),type=p[0]?.slice(-3),time,lat,lon,ele=null;if(type==='RMC'){let d=date6(p[9]);if(d){if(d.join()!=day.join())last=null;day=d;}if(p[2]!=='A')continue;[time,lat,lon]=[p[1],coord(p[3],p[4],true),coord(p[5],p[6],false)];}else if(type==='GGA'){if(+p[6]<=0)continue;[time,lat,lon]=[p[1],coord(p[2],p[3],true),coord(p[4],p[5],false)];ele=Number.isFinite(+p[9])?+p[9]:null;}else if(type==='ZDA'){if(p[4])day=[+p[4],+p[3],+p[2]];last=null;continue;}else continue;if(!/^\d{6}(\.\d+)?$/.test(time||'')||lat===null||lon===null)continue;let h=+time.slice(0,2),m=+time.slice(2,4),sec=+time.slice(4,6),ms=time.includes('.')?Math.round(+'0.'+time.split('.')[1]*1000):0;if(h>23||m>59||sec>60)continue;let tod=h*3600000+m*60000+Math.min(sec,59)*1000+ms;if(last!==null&&tod<last-43200000){let x=new Date(Date.UTC(day[0],day[1]-1,day[2]+1));day=[x.getUTCFullYear(),x.getUTCMonth()+1,x.getUTCDate()];}last=tod;let t=Date.UTC(day[0],day[1]-1,day[2],h,m,Math.min(sec,59),ms),k=''+t,old=pts.get(k);if(!old)pts.set(k,{lat,lon,time:t,ele});else if(ele!==null)old.ele=ele;}let a=[...pts.values()].sort((x,y)=>x.time-y.time);if(!a.length)throw Error('æ‰¾ä¸åˆ°æœ‰æ•ˆçš„ NMEA RMC/GGA åº§æ¨™');return a;}
-function gpx(s){let d=new DOMParser().parseFromString(s,'application/xml');if(d.queryåM•±•Ñ½È Á…ÉÍ•É•ÉÉ½Èœ¤¥Ñ¡É½ÜÉÉ½È A`ƒš‚ó–ò?¦2¿¢ªœ¤í±•Ð½ÕÐõmtíl¸¸¹¹•Ñ±•µ•¹ÑÍ	åQ…9…µ•9L œ¨œ°ÑÉ¬œ¥t¹™½É…  ¡Ð±¤¤ôùl¸¸¹Ð¹•Ñ±•µ•¹ÑÍ	åQ…9…µ•9L œ¨œ°ÑÉ­Í•œœ¥t¹™½É… ¡Í•œôùí±•ÐÁÑÌõl¸¸¹Í•œ¹•Ñ±•µ•¹ÑÍ	åQ…9…µ•9L œ¨œ°ÑÉ­ÁÐœ¥t¹µ…À¡Àôø¡í±…Ðè­À¹•ÑÑÑÉ¥‰ÕÑ” ±…Ðœ¤±±½¸è­À¹•ÑÑÑÉ¥‰ÕÑ” ±½¸œ¤±Ñ¥µ”é…Ñ”¹Á…ÉÍ”¡À¹•Ñ±•µ•¹ÑÍ	åQ…9…µ•9L œ¨œ°Ñ¥µ”œ¥lÁtü¹Ñ•áÑ½¹Ñ•¹Ð¥ññ¹Õ±°±•±”è­À¹•Ñ±•µ•¹ÑÍ	åQ…9…µ•9L œ¨œ°•±”œ¥lÁtü¹Ñ•áÑ½¹Ñ•¹Ñññ¹Õ±±ô¤¤í¥˜¡ÁÑÌ¹±•¹Ñ ¥½ÕÐ¹ÁÕÍ ¡í¹…µ”éÐ¹•Ñ±•µ•¹ÑÍ	åQ…9…µ•9L œ¨œ°¹…µ”œ¥lÁtü¹Ñ•áÑ½¹Ñ•¹ÑññQÉ…¬€‘í¤¬Åõ€±Á½¥¹ÑÌéÁÑÍô¤íô¤¤í¥˜ …½ÕÐ¹±•¹Ñ ¥Ñ¡É½ÜÉÉ½È A`ƒšÊKšr'¢î3¢Þ„œ¤íÉ•ÑÕÉ¸½ÕÐíô)™Õ¹Ñ¥½¸­µ°¡Ì¥í±•Ðõ¹•Ü=5A…ÉÍ•È ¤¹Á…ÉÍ•É½µMÑÉ¥¹œ¡Ì°…ÁÁ±¥…Ñ¥½¸½áµ°œ¤í¥˜¡¹ÅÕ•ÉåM•±•Ñ½È Á…ÉÍ•É•ÉÉ½Èœ¤¥Ñ¡É½ÜÉÉ½È -50ƒš‚ó–ò?¦2¿¢ªœ¤í±•Ð½ÕÐõmtíl¸¸¹¹•Ñ±•µ•¹ÑÍ	åQ…9…µ•9L œ¨œ°A±…•µ…É¬œ¥t¹™½É…  ¡À±¤¤ôùl¸¸¹À¹•Ñ±•µ•¹ÑÍ	åQ…9…µ•9L œ¨œ°1¥¹•MÑÉ¥¹œœ¥t¹™½É… ¡°ôùí±•ÐÉ…Üõ°¹•Ñ±•µ•¹ÑÍ	åQ…9…µ•9L œ¨œ°½½É‘¥¹…Ñ•Ìœ¥lÁtü¹Ñ•áÑ½¹Ñ•¹Ññðœœ±Á½¥¹ÑÌõÉ…Ü¹ÑÉ¥´ ¤¹ÍÁ±¥Ð ½qÌ¬¼¤¹™¥±Ñ•È¡	½½±•…¸¤¹µ…À¡Øôùí±•ÐŒõØ¹ÍÁ±¥Ð œ°œ¤¹µ…À¡9Õµ‰•È¤íÉ•ÑÕÉ¸í±½¸élÁt±±…ÐélÅt±•±”élÉtüý¹Õ±°±Ñ¥µ”é¹Õ±±ôíô¤í¥˜¡Á½¥¹ÑÌ¹±•¹Ñ ¥½ÕÐ¹ÁÕÍ ¡í¹…µ”éÀ¹•Ñ±•µ•¹ÑÍ	åQ…9…µ•9L œ¨œ°¹…µ”œ¥lÁtü¹Ñ•áÑ½¹Ñ•¹ÑññQÉ…¬€‘í¤¬Åõ€±Á½¥¹ÑÍô¤íô¤¤í¥˜ …½ÕÐ¹±•¹Ñ ¥Ñ¡É½ÜÉÉ½È -50ƒšÊKšr$1¥¹•MÑÉ¥¹œœ¤íÉ•ÑÕÉ¸½ÕÐíô)™Õ¹Ñ¥½¸…‘¡¹…µ”±Á½¥¹ÑÌ¥íÁ½¥¹ÑÌõÁ½¥¹ÑÌ¹™¥±Ñ•È¡Àôù9Õµ‰•È¹¥Í¥¹¥Ñ”¡À¹±…Ð¤˜™9Õµ‰•È¹¥Í¥¹¥Ñ”¡À¹±½¸¤˜™5…Ñ ¹…‰Ì¡À¹±…Ð¤ðôäÀ˜™5…Ñ ¹…‰Ì¡À¹±½¸¤ðôÄàÀ¤í¥˜ …Á½¥¹ÑÌ¹±•¹Ñ ¥Ñ¡É½ÜÉÉ½È ŸšÊKšr'šr'šV#–êŸš¢dœ¤íÑÉ…­Ì¹ÁÕÍ ¡í¥éÉåÁÑ¼¹É…¹‘½µUU%ü¸ ¥ñðœœ­…Ñ”¹¹½Ü ¤­5…Ñ ¹É…¹‘½´ ¤±¹…µ”±Á½¥¹ÑÌ±½±½Èé½±½ÉÍmÑÉ…­Ì¹±•¹Ñ •½±½ÉÌ¹±•¹Ñ¡t±Ù¥Í¥‰±”éÑÉÕ”±Í•±•Ñ•é™…±Í•ô¤íô)…Íå¹Œ™Õ¹Ñ¥½¸±½…‘¥±•Ì¡™¥±•Ì¥í±•Ð½Õ¹ÐôÀ±•ÉÉ½ÉÌõmtí™½È¡±•Ð˜½˜™¥±•Ì¥íÑÉåí±•ÐÌõ…Ý…¥Ð˜¹Ñ•áÐ ¤±•áÐõ˜¹¹…µ”¹ÍÁ±¥Ð œ¸œ¤¹Á½À ¤¹Ñ½1½Ý•É…Í” ¤±¥Ñ•µÌõ•áÐôôôÁàœýÁà¡Ì¤é•áÐôôô­µ°œý­µ°¡Ì¤émí¹…µ”é˜¹¹…µ”±Á½¥¹ÑÌé¹µ•„¡Ì¥õtí¥Ñ•µÌ¹™½É… ¡àôùí…‘¡¥Ñ•µÌ¹±•¹Ñ øÄý˜¹¹…µ”¬œƒ
-Ü€œ­à¹¹…µ”éà¹¹…µ•ññ˜¹¹…µ”±à¹Á½¥¹ÑÌ¤í½Õ¹Ð¬¬íô¤íõ…Ñ ¡”¥í•ÉÉ½ÉÌ¹ÁÕÍ ¡˜¹¹…µ”¬œè€œ­”¹µ•ÍÍ…”¤íõõÉ•¹‘•È ¤í™¥Ñ±° ¤íÍÑ…ÑÕÌ¡ƒ–2¿–”€‘í½Õ¹ÑôƒšŠw¢î3¢Þ„‘í•ÉÉ½ÉÌ¹±•¹Ñ üq¸œ­•ÉÉ½ÉÌ¹©½¥¸ q¸œ¤èœõ€°„…•ÉÉ½ÉÌ¹±•¹Ñ ¤íô)™Õ¹Ñ¥½¸•¼ ¥í±•Ð˜õmtíÑÉ…­Ì¹™½É… ¡Ðôùí˜¹ÁÕÍ ¡íÑåÁ”è•…ÑÕÉ”œ±ÁÉ½Á•ÉÑ¥•Ìéí­¥¹è±¥¹”œ±¥éÐ¹¥±½±½ÈéÐ¹½±½Éô±•½µ•ÑÉäéíÑåÁ”è1¥¹•MÑÉ¥¹œœ±½½É‘¥¹…Ñ•ÌéÐ¹Á½¥¹ÑÌ¹µ…À¡ÀôùmÀ¹±½¸±À¹±…Ñt¥õô¤íÐ¹Á½¥¹ÑÌ¹™½É…  ¡À±¤¤ôù˜¹ÁÕÍ ¡íÑåÁ”è•…ÑÕÉ”œ±ÁÉ½Á•ÉÑ¥•Ìéí­¥¹èÁ½¥¹Ðœ±¥éÐ¹¥±¥ô±•½µ•ÑÉäéíÑåÁ”èA½¥¹Ðœ±½½É‘¥¹…Ñ•ÌémÀ¹±½¸±À¹±…Ñuõô¤¤ílÍÑ…ÉÐœ°•¹t¹™½É… ¡¬ôùí±•ÐÀõ¬ôôôÍÑ…ÉÐœýÐ¹Á½¥¹ÑÍlÁtéÐ¹Á½¥¹ÑÌ¹…Ð ´Ä¤í˜¹ÁÕÍ ¡íÑåÁ”è•…ÑÕÉ”œ±ÁÉ½Á•ÉÑ¥•Ìéí­¥¹é¬±¥éÐ¹¥‘ô±•½µ•ÑÉäéíÑåÁ”èA½¥¹Ðœ±½½É‘¥¹…Ñ•ÌémÀ¹±½¸±À¹±…Ñuõô¤íô¤íô¤íÉ•ÑÕÉ¸íÑåÁ”è•…ÑÕÉ•½±±•Ñ¥½¸œ±™•…ÑÕÉ•Ìé™ôíô)™Õ¹Ñ¥½¸‘É…Ü ¥í¥˜ …µ…Àü¹¥ÍMÑå±•1½…‘• ¤¥É•ÑÕÉ¸í±•Ð‘…Ñ„õ•¼ ¤í¥˜ …µ…À¹•ÑM½ÕÉ” ÑÉ…­Ìœ¤¥íµ…À¹…‘‘M½ÕÉ” ÑÉ…­Ìœ±íÑåÁ”è•½©Í½¸œ±‘…Ñ…ô¤íµ…À¹…‘‘1…å•È¡í¥èÑÉ…¬µ±¥¹•Ìœ±ÑåÁ”è±¥¹”œ±Í½ÕÉ”èÑÉ…­Ìœ±™¥±Ñ•Èélœôôœ±l•Ðœ°­¥¹t°±¥¹”t±Á…¥¹Ðéì±¥¹”µ½±½Èœél•Ðœ°½±½Èt°±¥¹”µÝ¥‘Ñ œèÍõô¤íµ…À¹…‘‘1…å•È¡í¥èÑÉ…¬µÁ½¥¹ÑÌœ±ÑåÁ”è¥É±”œ±Í½ÕÉ”èÑÉ…­Ìœ±™¥±Ñ•Èélœôôœ±l•Ðœ°­¥¹t°Á½¥¹Ðt±±…å½ÕÐéíÙ¥Í¥‰¥±¥ÑäéÍÁ±¥Ñ5½‘”üÙ¥Í¥‰±”œè¹½¹”ô±Á…¥¹Ðéì¥É±”µÉ…‘¥ÕÌœèÐ°¥É±”µ½±½ÈœèÝ¡¥Ñ”œ°¥É±”µÍÑÉ½­”µ½±½ÈœèœŒÈàÜáˆàœ°¥É±”µÍÑÉ½­”µÝ¥‘Ñ œèÉõô¤íµ…À¹…‘‘1…å•È¡í¥èÑÉ…¬µ•¹‘Ìœ±ÑåÁ”è¥É±”œ±Í½ÕÉ”èÑÉ…­Ìœ±™¥±Ñ•Èél¥¸œ±l•Ðœ°­¥¹t±l±¥Ñ•É…°œ±lÍÑ…ÉÐœ°•¹uut±Á…¥¹Ðéì¥É±”µÉ…‘¥ÕÌœèØ°¥É±”µ½±½Èœélµ…Ñ œ±l•Ðœ°­¥¹t°ÍÑ…ÉÐœ°œŒÄØåˆÜØœ°œÌÑÑt°¥É±”µÍÑÉ½­”µ½±½ÈœèÝ¡¥Ñ”œ°¥É±”µÍÑÉ½­”µÝ¥‘Ñ œèÉõô¤íõ•±Í”µ…À¹•ÑM½ÕÉ” ÑÉ…­Ìœ¤¹Í•Ñ…Ñ„¡‘…Ñ„¤í±•Ð¥‘ÌõÑÉ…­Ì¹™¥±Ñ•È¡ÐôùÐ¹Ù¥Í¥‰±”¤¹µ…À¡ÐôùÐ¹¥¤íµ…À¹Í•Ñ¥±Ñ•È ÑÉ…¬µ±¥¹•Ìœ±l…±°œ±lœôôœ±l•Ðœ°­¥¹t°±¥¹”t±l¥¸œ±l•Ðœ°¥t±l±¥Ñ•É…°œ±¥‘Íuut¤íµ…À¹Í•Ñ¥±Ñ•È ÑÉ…¬µÁ½¥¹ÑÌœ±l…±°œ±lœôôœ±l•Ðœ°­¥¹t°Á½¥¹Ðt±l¥¸œ±l•Ðœ°¥t±l±¥Ñ•É…°œ±¥‘Íuut¤íµ…À¹Í•Ñ¥±Ñ•È ÑÉ…¬µ•¹‘Ìœ±l…±°œ±l¥¸œ±l•Ðœ°­¥¹t±l±¥Ñ•É…°œ±lÍÑ…ÉÐœ°•¹uut±l¥¸œ±l•Ðœ°¥t±l±¥Ñ•É…°œ±¥‘Íuut¤íµ…À¹Í•Ñ1…å½ÕÑAÉ½Á•ÉÑä ÑÉ…¬µÁ½¥¹ÑÌœ°Ù¥Í¥‰¥±¥Ñäœ±ÍÁ±¥Ñ5½‘”üÙ¥Í¥‰±”œè¹½¹”œ¤íô)™Õ¹Ñ¥½¸•ÑÑ¥Ù” ¥íÉ•ÑÕÉ¸ÑÉ…­Ì¹™¥¹¡ÐôùÐ¹¥ôôõ…Ñ¥Ù”¤íô)™Õ¹Ñ¥½¸‘¥ÍÑ…¹”¡À¥í±•Ð¸ôÀí™½È¡±•Ð¤ôÄí¤ñÀ¹±•¹Ñ í¤¬¬¥í±•Ð„õÁm¤´Åt±ˆõÁm¥t±Èõ5…Ñ ¹A$¼ÄàÀ±àõ5…Ñ ¹Í¥¸ ¡ˆ¹±…Ðµ„¹±…Ð¤©È¼È¤¨¨È­5…Ñ ¹½Ì¡„¹±…Ð©È¤©5…Ñ ¹½Ì¡ˆ¹±…Ð©È¤©5…Ñ ¹Í¥¸ ¡ˆ¹±½¸µ„¹±½¸¤©È¼È¤¨¨Èí¸¬ôÈ¨ÌÐÐÀ¸ÀØÔ©5…Ñ ¹…Í¥¸¡5…Ñ ¹ÍÅÉÐ¡5…Ñ ¹µ¥¸ Ä±à¤¤¤íõÉ•ÑÕÉ¸¸íô)™Õ¹Ñ¥½¸É•¹‘•È ¥í±•ÐÉ½½Ðô ÑÉ…­1¥ÍÐœ¤íÉ½½Ð¹É•Á±…•¡¥±‘É•¸ ¤ì ÑÉ…­½Õ¹Ðœ¤¹Ñ•áÑ½¹Ñ•¹ÐõÑÉ…­Ì¹±•¹Ñ ¬œƒšŠw¢î3¢Þ„œì µ•É•	Ñ¸œ¤¹‘¥Í…‰±•õÑÉ…­Ì¹™¥±Ñ•È¡ÐôùÐ¹Í•±•Ñ•¤¹±•¹Ñ ðÈílÉ•Ù•ÉÍ•	Ñ¸œ°Í¡¥™ÑQ¥µ•	Ñ¸œ°ÍÁ±¥Ñ5½‘•	Ñ¸t¹™½É… ¡¬ôø¡¬¤¹‘¥Í…‰±•ô…•ÑÑ¥Ù” ¤¤íl•áÁ½ÉÑ±±	Ñ¸œ°•áÁ½ÉÑ-µ±	Ñ¸t¹™½É… ¡¬ôø¡¬¤¹‘¥Í…‰±•ô…ÑÉ…­Ì¹±•¹Ñ ¤í¥˜ …ÑÉ…­Ì¹±•¹Ñ ¥í±•Ð”õ‘½Õµ•¹Ð¹É•…Ñ•±•µ•¹Ð ‘¥Øœ¤í”¹±…ÍÍ9…µ”ô•µÁÑäµÍÑ…Ñ”œí”¹Ñ•áÑ½¹Ñ•¹ÐôŸ–2¿–—šªSš†#–ú3¾ò3¢î3¢Þ‡šr¦†¿ž’ë–r£¦g¢Ž‡ŽœíÉ½½Ð¹…ÁÁ•¹¡”¤í‘É…Ü ¤íÉ•ÑÕÉ¸íõÑÉ…­Ì¹™½É… ¡Ðôùí±•ÐÈõ‘½Õµ•¹Ð¹É•…Ñ•±•µ•¹Ð ‘¥Øœ¤íÈ¹±…ÍÍ9…µ”ôÑÉ…¬µÉ½Üœ¬¡…Ñ¥Ù”ôôõÐ¹¥üœ…Ñ¥Ù”œèœœ¤í±•ÐÍ•°õ‘½Õµ•¹Ð¹É•…Ñ•±•µ•¹Ð ¥¹ÁÕÐœ¤íÍ•°¹ÑåÁ”ô¡•­‰½àœíÍ•°¹¡•­•õÐ¹Í•±•Ñ•íÍ•°¹½¹¡…¹”ô ¤ôùíÐ¹Í•±•Ñ•õÍ•°¹¡•­•íÉ•¹‘•È ¤íôí±•Ð½°õ‘½Õµ•¹Ð¹É•…Ñ•±•µ•¹Ð ¥¹ÁÕÐœ¤í½°¹ÑåÁ”ô½±½Èœí½°¹±…ÍÍ9…µ”ôÑÉ…¬µ½±½Èœí½°¹Ù…±Õ”õÐ¹½±½Èí½°¹½¹¥¹ÁÕÐô ¤ôùíÐ¹½±½Èõ½°¹Ù…±Õ”í‘É…Ü ¤íôí±•Ðµ•Ñ„õ‘½Õµ•¹Ð¹É•…Ñ•±•µ•¹Ð ‘¥Øœ¤íµ•Ñ„¹±…ÍÍ9…µ”ôÑÉ…¬µµ•Ñ„œí±•Ð¹´õ‘½Õµ•¹Ð¹É•…Ñ•±•µ•¹Ð ‘¥Øœ¤í¹´¹±…ÍÍ9…µ”ôÑÉ…¬µ¹…µ”œí¹´¹Ñ•áÑ½¹Ñ•¹ÐõÐ¹¹…µ”í±•ÐÑ¥µ•ÌõÐ¹Á½¥¹ÑÌ¹µ…À¡ÀôùÀ¹Ñ¥µ”¤¹™¥±Ñ•È¡9Õµ‰•È¹¥Í¥¹¥Ñ”¤±‘•Ñ…¥°õ‘½Õµ•¹Ð¹É•…Ñ•±•µ•¹Ð ‘¥Øœ¤í‘•Ñ…¥°¹±…ÍÍ9…µ”ôÑÉ…¬µ‘•Ñ…¥°œí‘•Ñ…¥°¹Ñ•áÑ½¹Ñ•¹Ðõ€‘íÐ¹Á½¥¹ÑÌ¹±•¹Ñ¡ôƒ¦îxƒ
-Ü€‘í‘¥ÍÑ…¹”¡Ð¹Á½¥¹ÑÌ¤¹Ñ½¥á• È¥ô94‘íÑ¥µ•Ì¹±•¹Ñ üœƒ
-Ü€œ­Ñè¹™½Éµ…Ð¡¹•Ü…Ñ”¡5…Ñ ¹µ¥¸ ¸¸¹Ñ¥µ•Ì¤¤¤èœõ€íµ•Ñ„¹…ÁÁ•¹¡¹´±‘•Ñ…¥°¤íµ•Ñ„¹½¹±¥¬ô ¤ôùí…Ñ¥Ù”õÐ¹¥íÉ•¹‘•È ¤í™¥Ð¡Ð¤íôí±•ÐÙ¥Ìõ‘½Õµ•¹Ð¹É•…Ñ•±•µ•¹Ð ‰ÕÑÑ½¸œ¤íÙ¥Ì¹±…ÍÍ9…µ”ôÑÉ…¬µ…Ñ¥½¸œíÙ¥Ì¹Ñ•áÑ½¹Ñ•¹ÐõÐ¹Ù¥Í¥‰±”üŸŠ^$œèŸŠ^,œíÙ¥Ì¹½¹±¥¬ô ¤ôùíÐ¹Ù¥Í¥‰±”ô…Ð¹Ù¥Í¥‰±”íÉ•¹‘•È ¤íôí±•Ð‘•°õ‘½Õµ•¹Ð¹É•…Ñ•±•µ•¹Ð ‰ÕÑÑ½¸œ¤í‘•°¹±…ÍÍ9…µ”ôÑÉ…¬µ…Ñ¥½¸œí‘•°¹Ñ•áÑ½¹Ñ•¹ÐôŸ\œí‘•°¹½¹±¥¬ô ¤ôùíÑÉ…­ÌõÑÉ…­Ì¹™¥±Ñ•È¡àôùà„ôõÐ¤í¥˜¡…Ñ¥Ù”ôôõÐ¹¥¥…Ñ¥Ù”õÑÉ…­ÍlÁtü¹¥‘ññ¹Õ±°íÉ•¹‘•È ¤í™¥Ñ±° ¤íôíÈ¹…ÁÁ•¹¡Í•°±½°±µ•Ñ„±Ù¥Ì±‘•°¤íÉ½½Ð¹…ÁÁ•¹¡È¤íô¤ì ÍÁ±¥Ñ5½‘•	Ñ¸œ¤¹Ñ•áÑ½¹Ñ•¹ÐõÍÁ±¥Ñ5½‘”üŸžÖCšv–"–&ÈœèŸ–"–&Ëš¢‡–ò<œì ÍÁ±¥Ñ5½‘•	Ñ¸œ¤¹±…ÍÍ1¥ÍÐ¹Ñ½±” …Ñ¥Ù”œ±ÍÁ±¥Ñ5½‘”¤í‘É…Ü ¤íô)™Õ¹Ñ¥½¸™¥Ð¡Ð¥í¥˜ …Ð¥É•ÑÕÉ¸í±•Ð°õÐ¹Á½¥¹ÑÌ¹µ…À¡ÀôùÀ¹±½¸¤±„õÐ¹Á½¥¹ÑÌ¹µ…À¡ÀôùÀ¹±…Ð¤íµ…À¹™¥Ñ	½Õ¹‘Ì¡mmµ…Ñ ¹µ¥¸ ¸¸¹°¤±5…Ñ ¹µ¥¸ ¸¸¹„¥t±m5…Ñ ¹µ…à ¸¸¹°¤±5…Ñ ¹µ…à ¸¸¹„¥ut±íÁ…‘‘¥¹œèØÀ±µ…ái½½´èÄÕô¤íô)™Õ¹Ñ¥½¸™¥Ñ±° ¥í±•ÐÀõÑÉ…­Ì¹™¥±Ñ•È¡ÐôùÐ¹Ù¥Í¥‰±”¤¹™±…Ñ5…À¡ÐôùÐ¹Á½¥¹ÑÌ¤í¥˜¡À¹±•¹Ñ ¥™¥Ð¡íÁ½¥¹ÑÌéÁô¤íô)™Õ¹Ñ¥½¸Í…Ù”¡¹…µ”±Ì±ÑåÁ”¥í±•ÐÔõUI0¹É•…Ñ•=‰©•ÑUI0¡¹•Ü	±½ˆ¡mÍt±íÑåÁ•ô¤¤±„õ‘½Õµ•¹Ð¹É•…Ñ•±•µ•¹Ð „œ¤í„¹¡É•˜õÔí„¹‘½Ý¹±½…õ¹…µ”í„¹±¥¬ ¤íÍ•ÑQ¥µ•½ÕÐ  ¤ôùUI0¹É•Ù½­•=‰©•ÑUI0¡Ô¤°ÄÀÀÀ¤íô)™Õ¹Ñ¥½¸•áÁ½ÉÑÁà ¥í±•Ðàõlœðýáµ°Ù•ÉÍ¥½¸ôˆÄ¸Àˆ•¹½‘¥¹œô‰UQ´àˆüøœ°œñÁàÙ•ÉÍ¥½¸ôˆÄ¸ÄˆÉ•…Ñ½Èô‰ALQÉ…¬MÑÕ‘¥¼ˆáµ±¹Ìô‰¡ÑÑÀè¼½ÝÝÜ¹Ñ½Á½É…™¥à¹½´½A`¼Ä¼ÄˆøtíÑÉ…­Ì¹™½É… ¡Ðôùíà¹ÁÕÍ  œñÑÉ¬øœ±€ñ¹…µ”ø‘íÐ¹¹…µ”¹É•Á±…” ½lð˜ùt½œ°œœ¥ôð½¹…µ”ù€°œñÑÉ­Í•œøœ¤íÐ¹Á½¥¹ÑÌ¹™½É… ¡Àôùíà¹ÁÕÍ ¡€ñÑÉ­ÁÐ±…Ðôˆ‘íÀ¹±…Ñôˆ±½¸ôˆ‘íÀ¹±½¹ôˆù€¤í¥˜¡9Õµ‰•È¹¥Í¥¹¥Ñ”¡À¹•±”¤¥à¹ÁÕÍ ¡€ñ•±”ø‘íÀ¹•±•ôð½•±”ù€¤í¥˜¡9Õµ‰•È¹¥Í¥¹¥Ñ”¡À¹Ñ¥µ”¤¥à¹ÁÕÍ ¡€ñÑ¥µ”ø‘í¹•Ü…Ñ”¡À¹Ñ¥µ”¤¹Ñ½%M=MÑÉ¥¹œ ¥ôð½Ñ¥µ”ù€¤íà¹ÁÕÍ  œð½ÑÉ­ÁÐøœ¤íô¤íà¹ÁÕÍ  œð½ÑÉ­Í•œøœ°œð½ÑÉ¬øœ¤íô¤íà¹ÁÕÍ  œð½Áàøœ¤íÍ…Ù” ÁÌµÑÉ…­Ì¹Áàœ±à¹©½¥¸ q¸œ¤°…ÁÁ±¥…Ñ¥½¸½Áà­áµ°œ¤íô)™Õ¹Ñ¥½¸•áÁ½ÉÑ-µ° ¥í±•Ðàõlœðýáµ°Ù•ÉÍ¥½¸ôˆÄ¸Àˆ•¹½‘¥¹œô‰UQ´àˆüøœ°œñ­µ°áµ±¹Ìô‰¡ÑÑÀè¼½ÝÝÜ¹½Á•¹¥Ì¹¹•Ð½­µ°¼È¸Èˆøñ½Õµ•¹ÐøtíÑÉ…­Ì¹™½É… ¡Ðôùà¹ÁÕÍ ¡€ñA±…•µ…É¬øñ¹…µ”ø‘íÐ¹¹…µ”¹É•Á±…” ½lð˜ùt½œ°œœ¥ôð½¹…µ”øñ1¥¹•MÑÉ¥¹œøñ½½É‘¥¹…Ñ•Ìø‘íÐ¹Á½¥¹ÑÌ¹µ…À¡Àôù€‘íÀ¹±½¹ô°‘íÀ¹±…Ñô°‘íÀ¹•±”üüÁõ€¤¹©½¥¸ œ€œ¥ôð½½½É‘¥¹…Ñ•Ìøð½1¥¹•MÑÉ¥¹œøð½A±…•µ…É¬ù€¤¤íà¹ÁÕÍ  œð½½Õµ•¹Ðøð½­µ°øœ¤íÍ…Ù” ÁÌµÑÉ…­Ì¹­µ°œ±à¹©½¥¸ q¸œ¤°…ÁÁ±¥…Ñ¥½¸½Ù¹¹½½±”µ•…ÉÑ ¹­µ°­áµ°œ¤íô)™Õ¹Ñ¥½¸µ•É” ¥í±•Ð„õÑÉ…­Ì¹™¥±Ñ•È¡ÐôùÐ¹Í•±•Ñ•¤í¥˜¡„¹±•¹Ñ ðÈ¥É•ÑÕÉ¸í±•ÐÑ¥µ•õ„¹•Ù•Éä¡ÐôùÐ¹Á½¥¹ÑÌ¹•Ù•Éä¡Àôù9Õµ‰•È¹¥Í¥¹¥Ñ”¡À¹Ñ¥µ”¤¤¤±Àõ„¹™±…Ñ5…À¡ÐôùÐ¹Á½¥¹ÑÌ¹µ…À ¡à±¤¤ôø¡ì¸¸¹à±Ñ¥éÐ¹¥±¥ô¤¤¤í¥˜¡Ñ¥µ•¥À¹Í½ÉÐ ¡à±ä¤ôùà¹Ñ¥µ”µä¹Ñ¥µ”¤í•±Í”À¹Í½ÉÐ ¡à±ä¤ôù„¹™¥¹‘%¹‘•à¡ÐôùÐ¹¥ôôõà¹Ñ¥¤µ„¹™¥¹‘%¹‘•à¡ÐôùÐ¹¥ôôõä¹Ñ¥¥ññà¹¤µä¹¤¤íÑÉ…­ÌõÑÉ…­Ì¹™¥±Ñ•È¡Ðôø…Ð¹Í•±•Ñ•¤í…‘ Ÿ–B#’ö×¢î3¢Þ„œ±À¹µ…À ¡íÑ¥±¤°¸¸¹áô¤ôùà¤¤í…Ñ¥Ù”õÑÉ…­Ì¹…Ð ´Ä¤¹¥íÉ•¹‘•È ¤í™¥Ð¡•ÑÑ¥Ù” ¤¤íÍÑ…ÑÕÌ Ÿ–ÞË–B#’ö×¦ã–>[¢î3¢Þ‡Žœ¤íô)™Õ¹Ñ¥½¸‰•¥¹MÁ±¥Ð¡¥±¤¥í±•ÐÐõÑÉ…­Ì¹™¥¹¡àôùà¹¥ôôõ¥¤í¥˜ …Ñññ¤ðÅññ¤øõÐ¹Á½¥¹ÑÌ¹±•¹Ñ ´Ä¥É•ÑÕÉ¸íÁ•¹‘¥¹œõí¥±¥ôì ÍÁ±¥Ñ•ÍÉ¥ÁÑ¥½¸œ¤¹Ñ•áÑ½¹Ñ•¹Ðõƒ–ú{ž²°€‘í¤¬Åôƒ¦î{–"–&ËŽ0‘íÐ¹¹…µ•÷Ž7¾ò3–"–&Ë¦î{šr’þwžVg–r£–§šº×Ž	€ì Á½¥¹Ñ¥…±½œœ¤¹Í¡½Ý5½‘…° ¤íô)™Õ¹Ñ¥½¸‘½MÁ±¥Ð ¥í¥˜ …Á•¹‘¥¹œ¥É•ÑÕÉ¸í±•ÐÐõÑÉ…­Ì¹™¥¹¡àôùà¹¥ôôõÁ•¹‘¥¹œ¹¥¤±¤õÁ•¹‘¥¹œ¹¤í¥˜ …Ð¥É•ÑÕÉ¸í±•Ð¸õÑÉ…­Ì¹¥¹‘•á=˜¡Ð¤íÑÉ…­Ì¹ÍÁ±¥”¡¸°Ä±ì¸¸¹ÑÉ…­½Áä¡Ð±€‘íÐ¹¹…µ•ô€±Ð¹Á½¥¹ÑÌ¹Í±¥” À±¤¬Ä¤¤±¥éÉåÁÑ¼¹É…¹‘½µUU% ¥ô±ì¸¸¹ÑÉ…­½Áä¡Ð±€‘íÐ¹¹…µ•ô	€±Ð¹Á½¥¹ÑÌ¹Í±¥”¡¤¤¤±¥éÉåÁÑ¼¹É…¹‘½µUU% ¥ô¤í…Ñ¥Ù”õÑÉ…­Ím¹t¹¥íÁ•¹‘¥¹œõ¹Õ±°íÍÁ±¥Ñ5½‘”õ™…±Í”ì Á½¥¹Ñ¥…±½œœ¤¹±½Í” ¤íÉ•¹‘•È ¤í™¥Ð¡•ÑÑ¥Ù” ¤¤íô)™Õ¹Ñ¥½¸ÑÉ…­½Áä¡Ð±¹…µ”±Á½¥¹ÑÌ¥íÉ•ÑÕÉ¸í¹…µ”±Á½¥¹ÑÌ±½±½ÈéÐ¹½±½È±Ù¥Í¥‰±”éÐ¹Ù¥Í¥‰±”±Í•±•Ñ•é™…±Í•ôíô)™Õ¹Ñ¥½¸É¥ ¥í¥˜ …µ…Àü¹¥ÍMÑå±•1½…‘• ¤¥É•ÑÕÉ¸í±•Ðˆõµ…À¹•Ñ	½Õ¹‘Ì ¤±ÍÑ•Àõµ…À¹•Ñi½½´ ¤øÄÈü¸ÈÔéµ…À¹•Ñi½½´ ¤øäü¸Ôéµ…À¹•Ñi½½´ ¤øÜüÄèÈ±˜õmtí™½È¡±•Ðàõ5…Ñ ¹•¥°¡ˆ¹•Ñ]•ÍÐ ¤½ÍÑ•À¤©ÍÑ•Àíàðõˆ¹•Ñ…ÍÐ ¤íà¬õÍÑ•À¥˜¹ÁÕÍ ¡íÑåÁ”è•…ÑÕÉ”œ±•½µ•ÑÉäéíÑåÁ”è1¥¹•MÑÉ¥¹œœ±½½É‘¥¹…Ñ•Ìémmà±ˆ¹•ÑM½ÕÑ  ¥t±mà±ˆ¹•Ñ9½ÉÑ  ¥uuô±ÁÉ½Á•ÉÑ¥•Ìéíõô¤í™½È¡±•Ðäõ5…Ñ ¹•¥°¡ˆ¹•ÑM½ÕÑ  ¤½ÍÑ•À¤©ÍÑ•Àíäðõˆ¹•Ñ9½ÉÑ  ¤íä¬õÍÑ•À¥˜¹ÁÕÍ ¡íÑåÁ”è•…ÑÕÉ”œ±•½µ•ÑÉäéíÑåÁ”è1¥¹•MÑÉ¥¹œœ±½½É‘¥¹…Ñ•Ìémmˆ¹•Ñ]•ÍÐ ¤±åt±mˆ¹•Ñ…ÍÐ ¤±åuuô±ÁÉ½Á•ÉÑ¥•Ìéíõô¤í±•ÐõíÑåÁ”è•…ÑÕÉ•½±±•Ñ¥½¸œ±™•…ÑÕÉ•Ìé™ôí¥˜ …µ…À¹•ÑM½ÕÉ” É¥œ¤¥íµ…À¹…‘‘M½ÕÉ” É¥œ±íÑåÁ”è•½©Í½¸œ±‘…Ñ„é‘ô¤íµ…À¹…‘‘1…å•È¡í¥èÉ¥œ±ÑåÁ”è±¥¹”œ±Í½ÕÉ”èÉ¥œ±Á…¥¹Ðéì±¥¹”µ½±½ÈœèœŒÔÈÙ„Ýˆœ°±¥¹”µÝ¥‘Ñ œè¸Ü°±¥¹”µ½Á…¥Ñäœè¸Íô±±…å½ÕÐéì±¥¹”µ‘…Í¡…ÉÉ…äœélÈ°Íuõô¤íõ•±Í”µ…À¹•ÑM½ÕÉ” É¥œ¤¹Í•Ñ…Ñ„¡¤íµ…À¹Í•Ñ1…å½ÕÑAÉ½Á•ÉÑä É¥œ°Ù¥Í¥‰¥±¥Ñäœ° É¥‘Q½±”œ¤¹¡•­•üÙ¥Í¥‰±”œè¹½¹”œ¤íô)™Õ¹Ñ¥½¸¥¹¥Ð ¥í¥˜ …Ý¥¹‘½Ü¹µ…Á±¥‰É•°¥íÍÑ…ÑÕÌ Ÿ–rÃ–r[–÷–ò?–ê¯¢ò'–—–’ÇšV_¾ò3¢®/šª‹š~—žÚË¢Þ¿Žœ±ÑÉÕ”¤íÉ•ÑÕÉ¸íõµ…Àõ¹•Üµ…Á±¥‰É•°¹5…À¡í½¹Ñ…¥¹•Èèµ…Àœ±ÍÑå±”éÍÑå±•Ì¹±¥‰•ÉÑä±•¹Ñ•ÈélÄÈÄ°ÈÌ¸Õt±é½½´èØ±…ÑÑÉ¥‰ÕÑ¥½¹½¹ÑÉ½°éÑÉÕ”±½½Á•É…Ñ¥Ù••ÍÑÕÉ•ÌéÑÉÕ•ô¤íµ…À¹…‘‘½¹ÑÉ½°¡¹•Üµ…Á±¥‰É•°¹9…Ù¥…Ñ¥½¹½¹ÑÉ½° ¤°Ñ½Àµ±•™Ðœ¤íµ…À¹…‘‘½¹ÑÉ½°¡¹•Üµ…Á±¥‰É•°¹M…±•½¹ÑÉ½°¡íÕ¹¥Ðè¹…ÕÑ¥…°ô¤°‰½ÑÑ½´µ±•™Ðœ¤íµ…À¹½¸ ±½…œ° ¤ôùí‘É…Ü ¤íÉ¥ ¤íµ…À¹½¸ ±¥¬œ°ÑÉ…¬µÁ½¥¹ÑÌœ±”ôùí¥˜¡ÍÁ±¥Ñ5½‘”˜™”¹™•…ÑÕÉ•Ìü¹lÁt¥‰•¥¹MÁ±¥Ð¡”¹™•…ÑÕÉ•ÍlÁt¹ÁÉ½Á•ÉÑ¥•Ì¹¥°­”¹™•…ÑÕÉ•ÍlÁt¹ÁÉ½Á•ÉÑ¥•Ì¹¤¤íô¤íô¤íµ…À¹½¸ ÍÑå±”¹±½…œ° ¤ôùí‘É…Ü ¤íÉ¥ ¤íô¤íµ…À¹½¸ µ½Ù••¹œ±É¥¤íµ…À¹½¸ µ½ÕÍ•µ½Ù”œ±”ôùí±•Ð˜ô¡Ø±„±ˆ¤ôùí±•Ðõ5…Ñ ¹™±½½È¡5…Ñ ¹…‰Ì¡Ø¤¤±´ô ¡5…Ñ ¹…‰Ì¡Ø¤µ¤¨ØÀ¤¹Ñ½¥á• Ì¤¹Á…‘MÑ…ÉÐ Ø°œÀœ¤íÉ•ÑÕÉ¸€‘íØøôÀý„é‰ô€‘í‘÷
-À€‘íµô€íôì ½½É‘¥¹…Ñ•I•…‘½ÕÐœ¤¹Ñ•áÑ½¹Ñ•¹Ðõ˜¡”¹±¹1…Ð¹±…Ð°8œ°Lœ¤¬ŸŽ œ­˜¡”¹±¹1…Ð¹±¹œ°œ°\œ¤íô¤íô)™Õ¹Ñ¥½¸•Ù•¹ÑÌ ¥í±•Ð™¤ô ™¥±•%¹ÁÕÐœ¤í™¤¹½¹¡…¹”ô ¤ôùí¥˜¡™¤¹™¥±•Ì¹±•¹Ñ ¥±½…‘¥±•Ì¡l¸¸¹™¤¹™¥±•Ít¤í™¤¹Ù…±Õ”ôœœíôí±•Ðèô ‘É½Ái½¹”œ¤íl‘É…•¹Ñ•Èœ°‘É…½Ù•Èt¹™½É… ¡¬ôùè¹…‘‘Ù•¹Ñ1¥ÍÑ•¹•È¡¬±”ôùí”¹ÁÉ•Ù•¹Ñ•™…Õ±Ð ¤íè¹±…ÍÍ1¥ÍÐ¹…‘ ‘É…½Ù•Èœ¤íô¤¤íl‘É…±•…Ù”œ°‘É½Àt¹™½É… ¡¬ôùè¹…‘‘Ù•¹Ñ1¥ÍÑ•¹•È¡¬±”ôùí”¹ÁÉ•Ù•¹Ñ•™…Õ±Ð ¤íè¹±…ÍÍ1¥ÍÐ¹É•µ½Ù” ‘É…½Ù•Èœ¤íô¤¤íè¹…‘‘Ù•¹Ñ1¥ÍÑ•¹•È ‘É½Àœ±”ôùí¥˜¡”¹‘…Ñ…QÉ…¹Í™•È¹™¥±•Ì¹±•¹Ñ ¥±½…‘¥±•Ì¡l¸¸¹”¹‘…Ñ…QÉ…¹Í™•È¹™¥±•Ít¤íô¤ì ™¥Ñ±±	Ñ¸œ¤¹½¹±¥¬õ™¥Ñ±°ì ÁÉ¥¹Ñ	Ñ¸œ¤¹½¹±¥¬ô ¤ôùÁÉ¥¹Ð ¤ì ±•…É±±	Ñ¸œ¤¹½¹±¥¬ô ¤ôùí¥˜¡½¹™¥É´ ŸžŠë–ºkšâ¦f“–£¦£¢î3¢Þ‡¾ò|œ¤¥íÑÉ…­Ìõmtí…Ñ¥Ù”õ¹Õ±°íÉ•¹‘•È ¤íÍÑ…ÑÕÌ Ÿ–ÞËšâ¦f“–£¦£¢î3¢Þ‡Žœ¤íõôì µ•É•	Ñ¸œ¤¹½¹±¥¬õµ•É”ì É•Ù•ÉÍ•	Ñ¸œ¤¹½¹±¥¬ô ¤ôùí±•ÐÐõ•ÑÑ¥Ù” ¤í¥˜¡Ð¥íÐ¹Á½¥¹ÑÌ¹É•Ù•ÉÍ” ¤íÉ•¹‘•È ¤í™¥Ð¡Ð¤íõôì Í¡¥™ÑQ¥µ•	Ñ¸œ¤¹½¹±¥¬ô ¤ôùí±•ÐÐõ•ÑÑ¥Ù” ¤í¥˜ …Ð¥É•ÑÕÉ¸í±•Ð´õ9Õµ‰•È¡ÁÉ½µÁÐ Ÿšf¦ZO–æÏžžï–"¦BcšVã¾ò#š¶šVã–îÛ–ú3Ž¢ÊƒšVãš>C–&7¾ò$œ°œÀœ¤¤í¥˜¡9Õµ‰•È¹¥Í¥¹¥Ñ”¡´¤¥íÐ¹Á½¥¹ÑÌ¹™½É… ¡Àôùí¥˜¡9Õµ‰•È¹¥Í¥¹¥Ñ”¡À¹Ñ¥µ”¤¥À¹Ñ¥µ”¬õ´¨ØÀÀÀÀíô¤íÉ•¹‘•È ¤íõôì ÍÁ±¥Ñ5½‘•	Ñ¸œ¤¹½¹±¥¬ô ¤ôùíÍÁ±¥Ñ5½‘”ô…ÍÁ±¥Ñ5½‘”íÉ•¹‘•È ¤ì Ñ½½±!¥¹Ðœ¤¹Ñ•áÑ½¹Ñ•¹ÐõÍÁ±¥Ñ5½‘”üŸ¦î{¦ã¢î3¢Þ‡ž¾¦î{¦Ë¢†3–"–&ËŽœèŸ–#¦ã–>[’âšŠw¢î3¢Þ‡–6Ï–>¿’öÿžR£–Þ—–ßŽœíôì Á½¥¹Ñ¥…±½œœ¤¹ÅÕ•ÉåM•±•Ñ½È ™½É´œ¤¹½¹ÍÕ‰µ¥Ðõ”ôùí¥˜¡”¹ÍÕ‰µ¥ÑÑ•Èü¹¥ôôô½¹™¥ÉµMÁ±¥Ñ	Ñ¸œ¥í”¹ÁÉ•Ù•¹Ñ•™…Õ±Ð ¤í‘½MÁ±¥Ð ¤íõ•±Í”Á•¹‘¥¹œõ¹Õ±°íôì •áÁ½ÉÑ±±	Ñ¸œ¤¹½¹±¥¬õ•áÁ½ÉÑÁàì •áÁ½ÉÑ-µ±	Ñ¸œ¤¹½¹±¥¬õ•áÁ½ÉÑ-µ°ì µ…ÁMÑå±•M•±•Ðœ¤¹½¹¡…¹”õ”ôùµ…À¹Í•ÑMÑå±”¡ÍÑå±•Ím”¹Ñ…É•Ð¹Ù…±Õ•t¤ì É¥‘Q½±”œ¤¹½¹¡…¹”õÉ¥íô)‘½Õµ•¹Ð¹…‘‘Ù•¹Ñ1¥ÍÑ•¹•È =5½¹Ñ•¹Ñ1½…‘•œ° ¤ôùí•Ù•¹ÑÌ ¤í¥¹¥Ð ¤íô±í½¹”éÑÉÕ•ô¤ì)ô¤ ¤ì
+  "use strict";
+
+  const $ = (id) => document.getElementById(id);
+  const colors = ["#e45757", "#2878b8", "#169b76", "#d99427", "#8a63ba", "#cf6096"];
+  const styles = {
+    liberty: "https://tiles.openfreemap.org/styles/liberty",
+    bright: "https://tiles.openfreemap.org/styles/bright",
+    positron: "https://tiles.openfreemap.org/styles/positron"
+  };
+  const DAY = 86400000;
+  let map = null;
+  let tracks = [];
+  let activeId = null;
+  let splitMode = false;
+  let splitTarget = null;
+  let colorIndex = 0;
+
+  const taipeiTime = new Intl.DateTimeFormat("zh-TW", {
+    timeZone: "Asia/Taipei",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+    hour12: false
+  });
+
+  function status(message, bad) {
+    $("statusMessage").textContent = message;
+    $("statusMessage").style.color = bad ? "#a63d3d" : "";
+  }
+
+  function makeId() {
+    return (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
+  }
+
+  function validPoint(p) {
+    return p && Number.isFinite(p.lat) && Number.isFinite(p.lon) &&
+      Math.abs(p.lat) <= 90 && Math.abs(p.lon) <= 180;
+  }
+
+  function coordinate(value, direction) {
+    if (!value || !direction) return null;
+    const raw = Number(value);
+    if (!Number.isFinite(raw)) return null;
+    const degrees = Math.floor(raw / 100);
+    const minutes = raw - degrees * 100;
+    if (minutes < 0 || minutes >= 60) return null;
+    let result = degrees + minutes / 60;
+    if (direction === "S" || direction === "W") result *= -1;
+    return result;
+  }
+
+  function nmeaDate(value) {
+    if (!/^\d{6}$/.test(value || "")) return null;
+    const day = Number(value.slice(0, 2));
+    const month = Number(value.slice(2, 4));
+    let year = Number(value.slice(4, 6));
+    year += year >= 80 ? 1900 : 2000;
+    const test = new Date(Date.UTC(year, month - 1, day));
+    if (test.getUTCFullYear() !== year || test.getUTCMonth() !== month - 1 || test.getUTCDate() !== day) return null;
+    return [year, month, day];
+  }
+
+  function nmeaTime(value) {
+    const match = /^(\d{2})(\d{2})(\d{2})(?:\.(\d+))?$/.exec(value || "");
+    if (!match) return null;
+    const hour = Number(match[1]), minute = Number(match[2]), second = Number(match[3]);
+    if (hour > 23 || minute > 59 || second > 59) return null;
+    const fraction = Number(("0." + (match[4] || "0"))) * 1000;
+    return hour * 3600000 + minute * 60000 + second * 1000 + Math.round(fraction);
+  }
+
+  function parseNmea(text) {
+    const lines = text.split(/\r?\n/);
+    const now = new Date();
+    let date = [now.getUTCFullYear(), now.getUTCMonth() + 1, now.getUTCDate()];
+    let rollover = 0;
+    let previousTod = null;
+    const points = new Map();
+    let usedFallbackDate = true;
+
+    for (const line of lines) {
+      const fields = line.trim().split(",");
+      if (!fields[0]) continue;
+      const type = fields[0].slice(-3);
+
+      if (type === "ZDA" && fields.length >= 5) {
+        const next = [Number(fields[4]), Number(fields[3]), Number(fields[2])];
+        const check = new Date(Date.UTC(next[0], next[1] - 1, next[2]));
+        if (next.every(Number.isFinite) && check.getUTCFullYear() === next[0] &&
+            check.getUTCMonth() === next[1] - 1 && check.getUTCDate() === next[2]) {
+          date = next;
+          rollover = 0;
+          previousTod = null;
+          usedFallbackDate = false;
+        }
+        continue;
+      }
+
+      let timeText, lat, lon, ele = null;
+      if (type === "RMC" && fields.length >= 10) {
+        const nextDate = nmeaDate(fields[9]);
+        if (nextDate) {
+          if (nextDate.join("-") !== date.join("-")) {
+            date = nextDate;
+            rollover = 0;
+            previousTod = null;
+          }
+          usedFallbackDate = false;
+        }
+        if (fields[2] !== "A") continue;
+        timeText = fields[1];
+        lat = coordinate(fields[3], fields[4]);
+        lon = coordinate(fields[5], fields[6]);
+      } else if (type === "GGA" && fields.length >= 10) {
+        if (Number(fields[6]) <= 0) continue;
+        timeText = fields[1];
+        lat = coordinate(fields[2], fields[3]);
+        lon = coordinate(fields[4], fields[5]);
+        ele = Number.isFinite(Number(fields[9])) ? Number(fields[9]) : null;
+      } else {
+        continue;
+      }
+
+      const tod = nmeaTime(timeText);
+      if (tod === null || lat === null || lon === null) continue;
+      if (previousTod !== null && previousTod - tod > 12 * 3600000) rollover += 1;
+      previousTod = tod;
+
+      const timestamp = Date.UTC(date[0], date[1] - 1, date[2]) + rollover * DAY + tod;
+      const key = String(timestamp);
+      const existing = points.get(key);
+      if (!existing) points.set(key, { lat, lon, time: timestamp, ele });
+      else if (ele !== null) existing.ele = ele;
+    }
+
+    const result = Array.from(points.values()).sort((a, b) => a.time - b.time);
+    if (!result.length) throw new Error("æ‰¾ä¸åˆ°æœ‰æ•ˆçš„ NMEA å®šä½è³‡æ–™ï¼ˆRMC/GGAï¼‰");
+    return { points: result, warning: usedFallbackDate ? "æ­¤æª”æ¡ˆæ²’æœ‰æ—¥æœŸè³‡è¨Šï¼Œæš«ä»¥ç›®å‰ UTC æ—¥æœŸè£œå€¼ï¼Œè«‹å…ˆæ ¸å°æ—¥æœŸã€‚" : "" };
+  }
+
+  function parseGpx(text, filename) {
+    const doc = new DOMParser().parseFromString(text, "application/xml");
+    if (doc.querySelector("parsererror")) throw new Error("GPX XML æ ¼å¼éŒ¯èª¤");
+    const toPoint = (node) => {
+      const lat = Number(node.getAttribute("lat"));
+      const lon = Number(node.getAttribute("lon"));
+      const eleNode = node.getElementsByTagNameNS("*", "ele")[0];
+      const timeNode = node.getElementsByTagNameNS("*", "time")[0];
+      const ele = eleNode && eleNode.textContent.trim() !== "" ? Number(eleNode.textContent) : null;
+      const time = timeNode ? Date.parse(timeNode.textContent) : null;
+      return { lat, lon, ele: Number.isFinite(ele) ? ele : null, time: Number.isFinite(time) ? time : null };
+    };
+    const segments = Array.from(doc.getElementsByTagNameNS("*", "trkseg"));
+    const result = [];
+    if (segments.length) {
+      segments.forEach((segment, index) => {
+        const points = Array.from(segment.getElementsByTagNameNS("*", "trkpt")).map(toPoint).filter(validPoint);
+        if (points.length) result.push({ name: segments.length > 1 ? filename + " (" + (index + 1) + ")" : filename, points });
+      });
+    } else {
+      const nodes = [
+        ...Array.from(doc.getElementsByTagNameNS("*", "trkpt")),
+        ...Array.from(doc.getElementsByTagNameNS("*", "rtept"))
+      ];
+      const points = nodes.map(toPoint).filter(validPoint);
+      if (points.length) result.push({ name: filename, points });
+    }
+    if (!result.length) throw new Error("GPX ä¸­æ²’æœ‰å¯è®€å–çš„è»Œè·¡é»ž");
+    return result;
+  }
+
+  function parseKml(text, filename) {
+    const doc = new DOMParser().parseFromString(text, "application/xml");
+    if (doc.querySelector("parsererror")) throw new Error("KML XML æ ¼å¼éŒ¯èª¤");
+    const lines = Array.from(doc.getElementsByTagNameNS("*", "LineString"));
+    const result = [];
+    lines.forEach((line, index) => {
+      const node = line.getElementsByTagNameNS("*", "coordinates")[0];
+      if (!node) return;
+      const points = node.textContent.trim().split(/\s+/).map((item) => {
+        const values = item.split(",").map(Number);
+        return { lon: values[0], lat: values[1], ele: Number.isFinite(values[2]) ? values[2] : null, time: null };
+      }).filter(validPoint);
+      if (points.length) result.push({ name: lines.length > 1 ? filename + " (" + (index + 1) + ")" : filename, points });
+    });
+    if (!result.length) throw new Error("KML ä¸­æ‰¾ä¸åˆ°å¯ç”¨çš„ LineString");
+    return result;
+  }
+
+  function addTrack(name, points) {
+    const clean = points.filter(validPoint);
+    if (!clean.length) throw new Error("è»Œè·¡æ²’æœ‰æœ‰æ•ˆåº§æ¨™");
+    tracks.push({
+      id: makeId(), name: name, points: clean,
+      color: colors[colorIndex++ % colors.length],
+      visible: true, selected: false
+    });
+  }
+
+  async function loadFiles(files) {
+    let imported = 0;
+    const errors = [];
+    const warnings = [];
+    for (const file of files) {
+      try {
+        const text = await file.text();
+        const ext = file.name.split(".").pop().toLowerCase();
+        let parsed;
+        if (ext === "gpx") parsed = parseGpx(text, file.name);
+        else if (ext === "kml") parsed = parseKml(text, file.name);
+        else {
+          const result = parseNmea(text);
+          parsed = [{ name: file.name, points: result.points }];
+          if (result.warning) warnings.push(file.name + "ï¼š" + result.warning);
+        }
+        parsed.forEach((item) => { addTrack(item.name, item.points); imported += 1; });
+      } catch (error) {
+        errors.push(file.name + "ï¼š" + error.message);
+      }
+    }
+    render();
+    fitAll();
+    let message = "å·²åŒ¯å…¥ " + imported + " æ¢è»Œè·¡";
+    if (warnings.length) message += "\n" + warnings.join("\n");
+    if (errors.length) message += "\nåŒ¯å…¥å¤±æ•—ï¼š\n" + errors.join("\n");
+    status(message, errors.length > 0);
+  }
+
+  function geojson() {
+    const features = [];
+    tracks.filter((track) => track.visible).forEach((track) => {
+      const coords = track.points.map((p) => [p.lon, p.lat]);
+      features.push({
+        type: "Feature",
+        properties: { kind: "line", trackId: track.id, color: track.color },
+        geometry: { type: "LineString", coordinates: coords }
+      });
+      track.points.forEach((p, index) => {
+        features.push({
+          type: "Feature",
+          properties: { kind: "point", trackId: track.id, index: index, color: track.color },
+          geometry: { type: "Point", coordinates: [p.lon, p.lat] }
+        });
+      });
+      ["start", "end"].forEach((kind) => {
+        const p = kind === "start" ? track.points[0] : track.points[track.points.length - 1];
+        features.push({
+          type: "Feature",
+          properties: { kind: kind, trackId: track.id },
+          geometry: { type: "Point", coordinates: [p.lon, p.lat] }
+        });
+      });
+    });
+    return { type: "FeatureCollection", features: features };
+  }
+
+  function setupLayers() {
+    if (!map || !map.isStyleLoaded()) return;
+    if (!map.getSource("tracks")) {
+      map.addSource("tracks", { type: "geojson", data: geojson() });
+      map.addLayer({
+        id: "track-lines", type: "line", source: "tracks",
+        filter: ["==", ["get", "kind"], "line"],
+        paint: { "line-color": ["get", "color"], "line-width": 3, "line-opacity": 0.92 }
+      });
+      map.addLayer({
+        id: "track-points", type: "circle", source: "tracks",
+        filter: ["==", ["get", "kind"], "point"],
+        layout: { visibility: splitMode ? "visible" : "none" },
+        paint: { "circle-radius": 4, "circle-color": ["get", "color"], "circle-stroke-color": "#fff", "circle-stroke-width": 1.2 }
+      });
+      map.addLayer({
+        id: "track-ends", type: "circle", source: "tracks",
+        filter: ["any", ["==", ["get", "kind"], "start"], ["==", ["get", "kind"], "end"]],
+        paint: {
+          "circle-radius": 7,
+          "circle-color": ["match", ["get", "kind"], "start", "#159b61", "#d34d4d"],
+          "circle-stroke-color": "#fff",
+          "circle-stroke-width": 2
+        }
+      });
+    } else {
+      map.getSource("tracks").setData(geojson());
+      map.setLayoutProperty("track-points", "visibility", splitMode ? "visible" : "none");
+    }
+  }
+
+  function makeGrid() {
+    if (!map || !map.isStyleLoaded()) return;
+    const bounds = map.getBounds();
+    const zoom = map.getZoom();
+    const step = zoom > 13 ? 0.1 : zoom > 10 ? 0.25 : zoom > 8 ? 0.5 : zoom > 6 ? 1 : 2;
+    const features = [];
+    for (let lon = Math.floor(bounds.getWest() / step) * step; lon <= bounds.getEast(); lon += step) {
+      features.push({ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [[lon, bounds.getSouth()], [lon, bounds.getNorth()]] } });
+    }
+    for (let lat = Math.floor(bounds.getSouth() / step) * step; lat <= bounds.getNorth(); lat += step) {
+      features.push({ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [[bounds.getWest(), lat], [bounds.getEast(), lat]] } });
+    }
+    const data = { type: "FeatureCollection", features: features };
+    if (!map.getSource("grid")) {
+      map.addSource("grid", { type: "geojson", data: data });
+      map.addLayer({ id: "coordinate-grid", type: "line", source: "grid", paint: { "line-color": "#526a7b", "line-width": 0.7, "line-opacity": 0.32, "line-dasharray": [2, 3] } });
+    } else {
+      map.getSource("grid").setData(data);
+    }
+    map.setLayoutProperty("coordinate-grid", "visibility", $("gridToggle").checked ? "visible" : "none");
+  }
+
+  function draw() {
+    if (map && map.isStyleLoaded()) {
+      setupLayers();
+      makeGrid();
+    }
+  }
+
+  function haversine(points) {
+    let total = 0;
+    for (let i = 1; i < points.length; i += 1) {
+      const a = points[i - 1], b = points[i], rad = Math.PI / 180;
+      const dLat = (b.lat - a.lat) * rad;
+      const dLon = (b.lon - a.lon) * rad;
+      const x = Math.sin(dLat / 2) ** 2 +
+        Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon / 2) ** 2;
+      total += 2 * 6371008.8 * Math.asin(Math.sqrt(Math.min(1, x)));
+    }
+    return total;
+  }
+
+  function formatTime(value) {
+    return Number.isFinite(value) ? taipeiTime.format(new Date(value)) : "æ™‚é–“æœªæä¾›";
+  }
+
+  function render() {
+    const root = $("trackList");
+    root.replaceChildren();
+    $("trackCount").textContent = tracks.length + " æ¢è»Œè·¡";
+    $("mergeBtn").disabled = tracks.filter((track) => track.selected).length < 2;
+    ["reverseBtn", "shiftTimeBtn", "splitModeBtn"].forEach((id) => { $(id).disabled = !tracks.some((track) => track.selected); });
+    ["exportAllBtn", "exportKmlBtn"].forEach((id) => { $(id).disabled = tracks.length === 0; });
+
+    if (!tracks.length) {
+      const empty = document.createElement("div");
+      empty.className = "empty-state";
+      empty.textContent = "å°šæœªåŒ¯å…¥è»Œè·¡ï¼Œè«‹æ‹–æ”¾æª”æ¡ˆè‡³ä¸Šæ–¹å€åŸŸã€‚";
+      root.append(empty);
+    }
+
+    tracks.forEach((track) => {
+      const row = document.createElement("div");
+      row.className = "track-row" + (activeId === track.id ? " active" : "");
+
+      const select = document.createElement("input");
+      select.type = "checkbox";
+      select.checked = track.selected;
+      select.title = "é¸å–æ­¤è»Œè·¡";
+      select.onchange = () => { track.selected = select.checked; activeId = track.id; render(); };
+
+      const visible = document.createElement("input");
+      visible.type = "checkbox";
+      visible.checked = track.visible;
+      visible.title = "é¡¯ç¤ºï¼éš±è—";
+      visible.onchange = () => { track.visible = visible.checked; draw(); };
+
+      const color = document.createElement("input");
+      color.type = "color";
+      color.className = "track-color";
+      color.value = track.color;
+      color.title = "è»Œè·¡é¡è‰²";
+      color.oninput = () => { track.color = color.value; draw(); };
+
+      const meta = document.createElement("div");
+      meta.className = "track-meta";
+      const name = document.createElement("div");
+      name.className = "track-name";
+      name.textContent = track.name;
+      const detail = document.createElement("div");
+      detail.className = "track-detail";
+      const times = track.points.map((p) => p.time).filter(Number.isFinite);
+      detail.textContent = track.points.length + " é»ž Â· " +
+        (haversine(track.points) / 1852).toFixed(2) + " NM" +
+        (times.length ? " Â· " + formatTime(Math.min(...times)) : "");
+      meta.append(name, detail);
+      meta.onclick = () => { activeId = track.id; render(); fit(track); };
+
+      const remove = document.createElement("button");
+      remove.className = "track-action";
+      remove.type = "button";
+      remove.title = "ç§»é™¤è»Œè·¡";
+      remove.textContent = "Ã—";
+      remove.onclick = () => {
+        tracks = tracks.filter((item) => item.id !== track.id);
+        if (activeId === track.id) activeId = tracks[0] ? tracks[0].id : null;
+        render();
+        draw();
+        fitAll();
+      };
+      row.append(select, visible, color, meta, remove);
+      root.append(row);
+    });
+
+    $("splitModeBtn").classList.toggle("active", splitMode);
+    $("splitModeBtn").textContent = splitMode ? "çµæŸåˆ†å‰²æ¨¡å¼" : "åˆ†å‰²è»Œè·¡";
+    $("toolHint").textContent = splitMode
+      ? "è«‹åœ¨åœ°åœ–ä¸Šé»žé¸è¦åˆ†å‰²çš„ä½ç½®ï¼›åˆ†å‰²é»žæœƒåŒæ™‚ä¿ç•™åœ¨å‰å¾Œå…©æ®µã€‚"
+      : "é¸å–ä¸€æ¢è»Œè·¡å¾Œå¯åè½‰æˆ–å¹³ç§»æ™‚é–“ï¼›é¸å–å…©æ¢ä»¥ä¸Šå¯åˆä½µã€‚";
+    draw();
+  }
+
+  function fit(track) {
+    if (!map || !track || !track.points.length) return;
+    const coords = track.points.map((p) => [p.lon, p.lat]);
+    map.fitBounds(coords.reduce((b, p) => b.extend(p), new maplibregl.LngLatBounds(coords[0], coords[0])), { padding: 60, maxZoom: 15 });
+  }
+
+  function fitAll() {
+    const points = tracks.filter((track) => track.visible).flatMap((track) => track.points);
+    if (!map || !points.length) return;
+    const bounds = new maplibregl.LngLatBounds([points[0].lon, points[0].lat], [points[0].lon, points[0].lat]);
+    points.forEach((p) => bounds.extend([p.lon, p.lat]));
+    map.fitBounds(bounds, { padding: 60, maxZoom: 15 });
+  }
+
+  function download(name, content, mime) {
+    const url = URL.createObjectURL(new Blob([content], { type: mime }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = name;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function escapeXml(value) {
+    return String(value).replace(/[<>&'"]/g, (ch) => ({
+      "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '"': "&quot;"
+    })[ch]);
+  }
+
+  function exportGpx() {
+    const selected = tracks.filter((track) => track.selected);
+    const chosen = selected.length ? selected : tracks;
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n' +
+      '<gpx version="1.1" creator="GPS Track Studio" xmlns="http://www.topografix.com/GPX/1/1">\n';
+    chosen.forEach((track) => {
+      xml += "<trk><name>" + escapeXml(track.name) + "</name><trkseg>\n";
+      track.points.forEach((p) => {
+        xml += '<trkpt lat="' + p.lat + '" lon="' + p.lon + '">';
+        if (Number.isFinite(p.ele)) xml += "<ele>" + p.ele + "</ele>";
+        if (Number.isFinite(p.time)) xml += "<time>" + new Date(p.time).toISOString() + "</time>";
+        xml += "</trkpt>\n";
+      });
+      xml += "</trkseg></trk>\n";
+    });
+    xml += "</gpx>";
+    download("gps-tracks.gpx", xml, "application/gpx+xml");
+  }
+
+  function exportKml() {
+    const selected = tracks.filter((track) => track.selected);
+    const chosen = selected.length ? selected : tracks;
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n' +
+      '<kml xmlns="http://www.opengis.net/kml/2.2"><Document>\n';
+    chosen.forEach((track) => {
+      xml += "<Placemark><name>" + escapeXml(track.name) + "</name><LineString><tessellate>1</tessellate><coordinates>";
+      xml += track.points.map((p) => p.lon + "," + p.lat + "," + (Number.isFinite(p.ele) ? p.ele : 0)).join(" ");
+      xml += "</coordinates></LineString></Placemark>\n";
+    });
+    xml += "</Document></kml>";
+    download("gps-tracks.kml", xml, "application/vnd.google-earth.kml+xml");
+  }
+
+  function mergeSelected() {
+    const selected = tracks.filter((track) => track.selected);
+    if (selected.length < 2) return;
+    const timed = selected.every((track) => track.points.every((p) => Number.isFinite(p.time)));
+    let points = [];
+    selected.forEach((track, trackIndex) => {
+      track.points.forEach((point, index) => points.push({ point: point, trackIndex: trackIndex, index: index }));
+    });
+    if (timed) points.sort((a, b) => a.point.time - b.point.time);
+    else points.sort((a, b) => a.trackIndex - b.trackIndex || a.index - b.index);
+    tracks = tracks.filter((track) => !track.selected);
+    addTrack("åˆä½µè»Œè·¡", points.map((item) => item.point));
+    activeId = tracks[tracks.length - 1].id;
+    render();
+    fit(getActive());
+    status("å·²åˆä½µ " + selected.length + " æ¢è»Œè·¡ã€‚");
+  }
+
+  function getActive() {
+    return tracks.find((track) => track.id === activeId) || tracks.find((track) => track.selected) || null;
+  }
+
+  function beginSplit(trackId, index) {
+    const track = tracks.find((item) => item.id === trackId);
+    if (!track || index < 1 || index >= track.points.length - 1) {
+      status("è«‹é¸æ“‡è»Œè·¡ä¸­é–“çš„é»žé€²è¡Œåˆ†å‰²ã€‚", true);
+      return;
+    }
+    splitTarget = { id: trackId, index: index };
+    $("splitDescription").textContent = "å°‡åœ¨ç¬¬ " + (index + 1) + " é»žåˆ†å‰²ã€Œ" + track.name + "ã€ã€‚åˆ†å‰²é»žæœƒä¿ç•™åœ¨å…©æ®µè»Œè·¡ä¸­ã€‚";
+    $("pointDialog").showModal();
+  }
+
+  function splitTrack() {
+    if (!splitTarget) return;
+    const track = tracks.find((item) => item.id === splitTarget.id);
+    if (!track) return;
+    const index = splitTarget.index;
+    const first = track.points.slice(0, index + 1);
+    const second = track.points.slice(index);
+    const originalName = track.name;
+    tracks = tracks.filter((item) => item.id !== track.id);
+    addTrack(originalName + " A", first);
+    addTrack(originalName + " B", second);
+    activeId = tracks[tracks.length - 1].id;
+    splitTarget = null;
+    splitMode = false;
+    $("pointDialog").close();
+    render();
+    fit(getActive());
+    status("è»Œè·¡å·²åˆ†å‰²ç‚ºå…©æ®µã€‚");
+  }
+
+  function updateTimeShift(event) {
+    event.preventDefault();
+    const minutes = Number($("shiftMinutes").value);
+    const active = getActive();
+    if (!active || !Number.isFinite(minutes)) return;
+    const offset = minutes * 60000;
+    active.points.forEach((point) => {
+      if (Number.isFinite(point.time)) point.time += offset;
+    });
+    $("timeDialog").close();
+    render();
+    status("å·²å¹³ç§» " + minutes + " åˆ†é˜ï¼›åº§æ¨™èˆ‡é»žä½é †åºæœªè®Šæ›´ã€‚");
+  }
+
+  function formatDmm(value, positive, negative) {
+    const abs = Math.abs(value);
+    const deg = Math.floor(abs);
+    const min = ((abs - deg) * 60).toFixed(3).padStart(6, "0");
+    return (value >= 0 ? positive : negative) + " " + deg + "Â° " + min + "'";
+  }
+
+  function initMap() {
+    if (!window.maplibregl) {
+      status("åœ°åœ–ç¨‹å¼è¼‰å…¥å¤±æ•—ï¼›è«‹ç¢ºèªç¶²è·¯é€£ç·šå¾Œé‡æ–°æ•´ç†ã€‚", true);
+      return;
+    }
+    map = new maplibregl.Map({
+      container: "map",
+      style: styles.liberty,
+      center: [121, 23.5],
+      zoom: 6,
+      attributionControl: true,
+      cooperativeGestures: true
+    });
+    map.addControl(new maplibregl.NavigationControl(), "top-left");
+    map.addControl(new maplibregl.ScaleControl({ unit: "nautical" }), "bottom-left");
+    map.on("load", () => { setupLayers(); makeGrid(); });
+    map.on("style.load", () => { setupLayers(); makeGrid(); });
+    map.on("moveend", makeGrid);
+    map.on("zoomend", makeGrid);
+    map.on("mousemove", (event) => {
+      $("coordinateReadout").textContent =
+        formatDmm(event.lngLat.lat, "N", "S") + "  " +
+        formatDmm(event.lngLat.lng, "E", "W");
+    });
+    map.on("click", (event) => {
+      if (!splitMode) return;
+      const features = map.queryRenderedFeatures(event.point, { layers: ["track-points"] });
+      if (!features.length) return;
+      const props = features[0].properties;
+      beginSplit(props.trackId, Number(props.index));
+    });
+  }
+
+  function bindEvents() {
+    const fileInput = $("fileInput");
+    const drop = $("dropZone");
+    fileInput.onchange = () => {
+      if (fileInput.files.length) loadFiles(Array.from(fileInput.files));
+      fileInput.value = "";
+    };
+    ["dragenter", "dragover"].forEach((eventName) => drop.addEventListener(eventName, (event) => {
+      event.preventDefault();
+      drop.classList.add("dragover");
+    }));
+    ["dragleave", "drop"].forEach((eventName) => drop.addEventListener(eventName, (event) => {
+      event.preventDefault();
+      drop.classList.remove("dragover");
+    }));
+    drop.addEventListener("drop", (event) => {
+      if (event.dataTransfer.files.length) loadFiles(Array.from(event.dataTransfer.files));
+    });
+
+    $("fitAllBtn").onclick = fitAll;
+    $("printBtn").onclick = () => window.print();
+    $("clearAllBtn").onclick = () => {
+      if (tracks.length && confirm("ç¢ºå®šè¦æ¸…é™¤æ‰€æœ‰è»Œè·¡å—Žï¼Ÿ")) {
+        tracks = [];
+        activeId = null;
+        splitMode = false;
+        render();
+        status("å·²æ¸…é™¤æ‰€æœ‰è»Œè·¡ã€‚");
+      }
+    };
+    $("mergeBtn").onclick = mergeSelected;
+    $("reverseBtn").onclick = () => {
+      const active = getActive();
+      if (!active) return;
+      active.points.reverse();
+      render();
+      fit(active);
+      status("å·²åè½‰é»žä½é †åºï¼›æ™‚é–“æˆ³è¨˜ç¶­æŒåŽŸå€¼ã€‚");
+    };
+    $("shiftTimeBtn").onclick = () => {
+      if (!getActive()) return;
+      $("shiftMinutes").value = 0;
+      $("timeDialog").showModal();
+    };
+    $("timeForm").onsubmit = updateTimeShift;
+    $("splitModeBtn").onclick = () => {
+      if (!getActive()) return;
+      splitMode = !splitMode;
+      render();
+      status(splitMode ? "åˆ†å‰²æ¨¡å¼ï¼šè«‹é»žé¸åœ°åœ–ä¸Šçš„è»Œè·¡é»žã€‚" : "å·²é›¢é–‹åˆ†å‰²æ¨¡å¼ã€‚");
+    };
+    $("pointDialog").querySelector("form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (event.submitter && event.submitter.id === "confirmSplitBtn") splitTrack();
+      else {
+        splitTarget = null;
+        $("pointDialog").close();
+      }
+    });
+    $("exportAllBtn").onclick = exportGpx;
+    $("exportKmlBtn").onclick = exportKml;
+    $("mapStyleSelect").onchange = (event) => map && map.setStyle(styles[event.target.value] || styles.liberty);
+    $("gridToggle").onchange = makeGrid;
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    bindEvents();
+    initMap();
+    render();
+  }, { once: true });
+})();
