@@ -2,7 +2,7 @@
   "use strict";
 
   const $ = (id) => document.getElementById(id);
-  const colors = ["#e45757", "#2878b8", "#169b76", "#d99427", "#8a63ba", "#cf6096"];
+  const colors = ["#e45757", "#2878b8", "#169b76", "#d99427", "#8a63ba", "#cf6096", "#0f8b8d", "#7a8f30"];
   const styles = {
     liberty: "https://tiles.openfreemap.org/styles/liberty",
     bright: "https://tiles.openfreemap.org/styles/bright",
@@ -16,12 +16,110 @@
   let splitTarget = null;
   let colorIndex = 0;
 
-  const taipeiTime = new Intl.DateTimeFormat("zh-TW", {
-    timeZone: "Asia/Taipei",
-    year: "numeric", month: "2-digit", day: "2-digit",
-    hour: "2-digit", minute: "2-digit", second: "2-digit",
-    hour12: false
-  });
+  const TIMEZONE_KEY = "gps-track-studio-timezone";
+  let displayTimeZone = "auto";
+  try {
+    displayTimeZone = localStorage.getItem(TIMEZONE_KEY) || "auto";
+  } catch (_) {
+    // Storage may be unavailable in private or restricted browsing contexts.
+  }
+
+  function createTimeFormatter() {
+    const options = {
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit",
+      hour12: false
+    };
+    if (displayTimeZone !== "auto") options.timeZone = displayTimeZone;
+    return new Intl.DateTimeFormat("zh-TW", options);
+  }
+
+  let timeFormatter;
+  try {
+    timeFormatter = createTimeFormatter();
+  } catch (_) {
+    displayTimeZone = "auto";
+    timeFormatter = createTimeFormatter();
+  }
+
+  function currentSystemTimeZone() {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "系統時區";
+  }
+
+  function updateTimeZoneSummary() {
+    $("timezoneSummary").textContent = displayTimeZone === "auto"
+      ? "系統自動：" + currentSystemTimeZone()
+      : "目前顯示：" + displayTimeZone;
+  }
+
+  function initializeTimeZones() {
+    const select = $("timeZoneSelect");
+    const common = ["UTC", "Asia/Taipei", "Asia/Tokyo", "Asia/Singapore", "Europe/London", "America/Los_Angeles", "America/New_York"];
+    let supported = [];
+    try {
+      if (typeof Intl.supportedValuesOf === "function") supported = Intl.supportedValuesOf("timeZone");
+    } catch (_) {
+      supported = [];
+    }
+
+    select.replaceChildren();
+    const automatic = document.createElement("option");
+    automatic.value = "auto";
+    automatic.textContent = "系統自動";
+    select.append(automatic);
+
+    const commonGroup = document.createElement("optgroup");
+    commonGroup.label = "常用時區";
+    const allGroup = document.createElement("optgroup");
+    allGroup.label = "所有支援時區";
+    const added = new Set();
+    common.forEach((zone) => {
+      const option = document.createElement("option");
+      option.value = zone;
+      option.textContent = zone;
+      commonGroup.append(option);
+      added.add(zone);
+    });
+    supported.filter((zone) => !added.has(zone)).forEach((zone) => {
+      const option = document.createElement("option");
+      option.value = zone;
+      option.textContent = zone;
+      allGroup.append(option);
+    });
+    select.append(commonGroup);
+    if (allGroup.children.length) select.append(allGroup);
+
+    const allowed = new Set(["auto", ...common, ...supported]);
+    if (!allowed.has(displayTimeZone)) displayTimeZone = "auto";
+    select.value = displayTimeZone;
+    try {
+      timeFormatter = createTimeFormatter();
+    } catch (_) {
+      displayTimeZone = "auto";
+      select.value = "auto";
+      timeFormatter = createTimeFormatter();
+    }
+    updateTimeZoneSummary();
+  }
+
+  function setDisplayTimeZone(value) {
+    displayTimeZone = value || "auto";
+    try {
+      timeFormatter = createTimeFormatter();
+    } catch (_) {
+      displayTimeZone = "auto";
+      timeFormatter = createTimeFormatter();
+      $("timeZoneSelect").value = "auto";
+      status("所選時區不受此瀏覽器支援，已改回系統自動。", true);
+    }
+    try {
+      localStorage.setItem(TIMEZONE_KEY, displayTimeZone);
+    } catch (_) {
+      // The setting still applies for this page session.
+    }
+    updateTimeZoneSummary();
+    render();
+  }
 
   function status(message, bad) {
     $("statusMessage").textContent = message;
@@ -328,7 +426,27 @@
   }
 
   function formatTime(value) {
-    return Number.isFinite(value) ? taipeiTime.format(new Date(value)) : "時間未提供";
+    return Number.isFinite(value) ? timeFormatter.format(new Date(value)) : "時間未提供";
+  }
+
+  function activateTrack(track, event) {
+    const previousId = activeId;
+    if (event && event.shiftKey && previousId) {
+      const start = tracks.findIndex((item) => item.id === previousId);
+      const end = tracks.findIndex((item) => item.id === track.id);
+      if (start >= 0 && end >= 0) {
+        tracks.forEach((item) => { item.selected = false; });
+        tracks.slice(Math.min(start, end), Math.max(start, end) + 1)
+          .forEach((item) => { item.selected = true; });
+      }
+    } else if (event && (event.ctrlKey || event.metaKey)) {
+      track.selected = !track.selected;
+    } else {
+      tracks.forEach((item) => { item.selected = item.id === track.id; });
+    }
+    activeId = track.id;
+    render();
+    fit(track);
   }
 
   function render() {
@@ -336,8 +454,9 @@
     root.replaceChildren();
     $("trackCount").textContent = tracks.length + " 條軌跡";
     $("mergeBtn").disabled = tracks.filter((track) => track.selected).length < 2;
-    ["reverseBtn", "shiftTimeBtn", "splitModeBtn"].forEach((id) => { $(id).disabled = !tracks.some((track) => track.selected); });
-    ["exportAllBtn", "exportKmlBtn"].forEach((id) => { $(id).disabled = tracks.length === 0; });
+    const activeTrack = getActive();
+    ["reverseBtn", "shiftTimeBtn", "splitModeBtn"].forEach((id) => { $(id).disabled = !activeTrack; });
+    ["exportGpxBtn", "exportKmlBtn"].forEach((id) => { $(id).disabled = tracks.length === 0; });
 
     if (!tracks.length) {
       const empty = document.createElement("div");
@@ -349,25 +468,50 @@
     tracks.forEach((track) => {
       const row = document.createElement("div");
       row.className = "track-row" + (activeId === track.id ? " active" : "");
-
-      const select = document.createElement("input");
-      select.type = "checkbox";
-      select.checked = track.selected;
-      select.title = "選取此軌跡";
-      select.onchange = () => { track.selected = select.checked; activeId = track.id; render(); };
+      row.tabIndex = 0;
+      row.setAttribute("role", "button");
+      row.setAttribute("aria-pressed", activeId === track.id ? "true" : "false");
+      row.title = "點選設為目前軌跡；Ctrl／⌘ 點選可多選，Shift 點選可範圍選取";
 
       const visible = document.createElement("input");
       visible.type = "checkbox";
       visible.checked = track.visible;
-      visible.title = "顯示／隱藏";
+      visible.title = "顯示／隱藏軌跡";
+      visible.setAttribute("aria-label", "顯示或隱藏 " + track.name);
+      visible.addEventListener("click", (event) => event.stopPropagation());
       visible.onchange = () => { track.visible = visible.checked; draw(); };
 
-      const color = document.createElement("input");
-      color.type = "color";
-      color.className = "track-color";
-      color.value = track.color;
-      color.title = "軌跡顏色";
-      color.oninput = () => { track.color = color.value; draw(); };
+      const palette = document.createElement("div");
+      palette.className = "track-colors";
+      palette.setAttribute("aria-label", "軌跡顏色");
+      colors.forEach((hex) => {
+        const swatch = document.createElement("button");
+        swatch.type = "button";
+        swatch.className = "color-swatch" + (track.color.toLowerCase() === hex ? " active" : "");
+        swatch.style.backgroundColor = hex;
+        swatch.title = "設定顏色 " + hex;
+        swatch.setAttribute("aria-label", "設定顏色 " + hex);
+        swatch.onclick = (event) => {
+          event.stopPropagation();
+          track.color = hex;
+          render();
+        };
+        palette.append(swatch);
+      });
+
+      const customColor = document.createElement("input");
+      customColor.type = "color";
+      customColor.className = "track-color";
+      customColor.value = track.color;
+      customColor.title = "自訂 RGB／HEX 顏色";
+      customColor.setAttribute("aria-label", "自訂軌跡顏色");
+      customColor.addEventListener("click", (event) => event.stopPropagation());
+      customColor.oninput = () => {
+        track.color = customColor.value;
+        draw();
+        palette.querySelectorAll(".color-swatch").forEach((swatch) => swatch.classList.remove("active"));
+      };
+      palette.append(customColor);
 
       const meta = document.createElement("div");
       meta.className = "track-meta";
@@ -376,26 +520,44 @@
       name.textContent = track.name;
       const detail = document.createElement("div");
       detail.className = "track-detail";
-      const times = track.points.map((p) => p.time).filter(Number.isFinite);
       detail.textContent = track.points.length + " 點 · " +
-        (haversine(track.points) / 1852).toFixed(2) + " NM" +
-        (times.length ? " · " + formatTime(Math.min(...times)) : "");
-      meta.append(name, detail);
-      meta.onclick = () => { activeId = track.id; render(); fit(track); };
+        (haversine(track.points) / 1852).toFixed(2) + " NM";
+      const timeRange = document.createElement("div");
+      timeRange.className = "track-time-range";
+      const times = track.points.map((point) => point.time).filter(Number.isFinite);
+      timeRange.textContent = times.length
+        ? "起 " + formatTime(Math.min(...times)) + "  /  迄 " + formatTime(Math.max(...times))
+        : "起訖時間未提供";
+      meta.append(name, detail, timeRange);
 
       const remove = document.createElement("button");
       remove.className = "track-action";
       remove.type = "button";
-      remove.title = "移除軌跡";
-      remove.textContent = "×";
-      remove.onclick = () => {
+      remove.title = "刪除這條軌跡";
+      remove.setAttribute("aria-label", "刪除 " + track.name);
+      remove.textContent = "刪除";
+      remove.onclick = (event) => {
+        event.stopPropagation();
+        if (!confirm("確定刪除軌跡「" + track.name + "」？")) return;
         tracks = tracks.filter((item) => item.id !== track.id);
         if (activeId === track.id) activeId = tracks[0] ? tracks[0].id : null;
         render();
         draw();
         fitAll();
+        status("已刪除軌跡：「" + track.name + "」。");
       };
-      row.append(select, visible, color, meta, remove);
+
+      row.addEventListener("click", (event) => {
+        if (event.target.closest("button, input, select")) return;
+        activateTrack(track, event);
+      });
+      row.addEventListener("keydown", (event) => {
+        if (event.target !== row || (event.key !== "Enter" && event.key !== " ")) return;
+        event.preventDefault();
+        activateTrack(track, event);
+      });
+
+      row.append(visible, meta, palette, remove);
       root.append(row);
     });
 
@@ -639,13 +801,21 @@
         $("pointDialog").close();
       }
     });
-    $("exportAllBtn").onclick = exportGpx;
-    $("exportKmlBtn").onclick = exportKml;
+    $("exportGpxBtn").onclick = () => {
+      exportGpx();
+      $("exportDropdown").open = false;
+    };
+    $("exportKmlBtn").onclick = () => {
+      exportKml();
+      $("exportDropdown").open = false;
+    };
+    $("timeZoneSelect").onchange = (event) => setDisplayTimeZone(event.target.value);
     $("mapStyleSelect").onchange = (event) => map && map.setStyle(styles[event.target.value] || styles.liberty);
     $("gridToggle").onchange = makeGrid;
   }
 
   document.addEventListener("DOMContentLoaded", () => {
+    initializeTimeZones();
     bindEvents();
     initMap();
     render();
