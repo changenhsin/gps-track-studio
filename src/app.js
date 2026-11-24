@@ -524,6 +524,10 @@
 
   function updateTimeShift(event) {
     event.preventDefault();
+    if (event.submitter && event.submitter.value === "cancel") {
+      $("timeDialog").close();
+      return;
+    }
     const minutes = Number($("shiftMinutes").value);
     const active = getActive();
     if (!active || !Number.isFinite(minutes)) return;
