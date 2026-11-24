@@ -90,6 +90,12 @@
 
     <section class="map-panel">
       <div id="map" aria-label="GPS 軌跡地圖"></div>
+      <div class="split-hover-tooltip" id="splitHoverTooltip" role="status" aria-live="polite" hidden>
+        <strong id="splitHoverTitle"></strong>
+        <span id="splitHoverTime"></span>
+        <span id="splitHoverLatitude"></span>
+        <span id="splitHoverLongitude"></span>
+      </div>
       <div class="map-toolbar">
         <label for="mapStyleSelect">底圖</label>
         <select id="mapStyleSelect">

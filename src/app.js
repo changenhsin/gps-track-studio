@@ -353,20 +353,35 @@
   }
 
   function setupLayers() {
-    if (!map || !map.isStyleLoaded()) return;
+    // style.load is the safe boundary for rebuilding app-owned layers after setStyle().
+    if (!map || !map.getStyle()) return;
+
     if (!map.getSource("tracks")) {
       map.addSource("tracks", { type: "geojson", data: geojson() });
+    } else {
+      map.getSource("tracks").setData(geojson());
+    }
+
+    if (!map.getLayer("track-lines")) {
       map.addLayer({
         id: "track-lines", type: "line", source: "tracks",
         filter: ["==", ["get", "kind"], "line"],
         paint: { "line-color": ["get", "color"], "line-width": 3, "line-opacity": 0.92 }
       });
+    }
+
+    if (!map.getLayer("track-points")) {
       map.addLayer({
         id: "track-points", type: "circle", source: "tracks",
         filter: ["==", ["get", "kind"], "point"],
         layout: { visibility: splitMode ? "visible" : "none" },
         paint: { "circle-radius": 4, "circle-color": ["get", "color"], "circle-stroke-color": "#fff", "circle-stroke-width": 1.2 }
       });
+    } else {
+      map.setLayoutProperty("track-points", "visibility", splitMode ? "visible" : "none");
+    }
+
+    if (!map.getLayer("track-ends")) {
       map.addLayer({
         id: "track-ends", type: "circle", source: "tracks",
         filter: ["any", ["==", ["get", "kind"], "start"], ["==", ["get", "kind"], "end"]],
@@ -377,14 +392,11 @@
           "circle-stroke-width": 2
         }
       });
-    } else {
-      map.getSource("tracks").setData(geojson());
-      map.setLayoutProperty("track-points", "visibility", splitMode ? "visible" : "none");
     }
   }
 
   function makeGrid() {
-    if (!map || !map.isStyleLoaded()) return;
+    if (!map || !map.getStyle()) return;
     const bounds = map.getBounds();
     const zoom = map.getZoom();
     const step = zoom > 13 ? 0.1 : zoom > 10 ? 0.25 : zoom > 8 ? 0.5 : zoom > 6 ? 1 : 2;
@@ -398,9 +410,11 @@
     const data = { type: "FeatureCollection", features: features };
     if (!map.getSource("grid")) {
       map.addSource("grid", { type: "geojson", data: data });
-      map.addLayer({ id: "coordinate-grid", type: "line", source: "grid", paint: { "line-color": "#526a7b", "line-width": 0.7, "line-opacity": 0.32, "line-dasharray": [2, 3] } });
     } else {
       map.getSource("grid").setData(data);
+    }
+    if (!map.getLayer("coordinate-grid")) {
+      map.addLayer({ id: "coordinate-grid", type: "line", source: "grid", paint: { "line-color": "#526a7b", "line-width": 0.7, "line-opacity": 0.32, "line-dasharray": [2, 3] } });
     }
     map.setLayoutProperty("coordinate-grid", "visibility", $("gridToggle").checked ? "visible" : "none");
   }
@@ -660,8 +674,51 @@
       return;
     }
     splitTarget = { id: trackId, index: index };
+    hideSplitHover();
     $("splitDescription").textContent = "將在第 " + (index + 1) + " 點分割「" + track.name + "」。分割點會保留在兩段軌跡中。";
     $("pointDialog").showModal();
+  }
+
+  function hideSplitHover() {
+    const tooltip = $("splitHoverTooltip");
+    if (tooltip) tooltip.hidden = true;
+  }
+
+  function updateSplitHover(event) {
+    const tooltip = $("splitHoverTooltip");
+    if (!tooltip || !splitMode || !map || !map.getLayer("track-points")) {
+      hideSplitHover();
+      return;
+    }
+
+    const features = map.queryRenderedFeatures(event.point, { layers: ["track-points"] });
+    if (!features.length) {
+      hideSplitHover();
+      return;
+    }
+
+    const props = features[0].properties || {};
+    const track = tracks.find((item) => item.id === props.trackId);
+    const index = Number(props.index);
+    const point = track && track.points[index];
+    if (!track || !point) {
+      hideSplitHover();
+      return;
+    }
+
+    const canSplit = index > 0 && index < track.points.length - 1;
+    $("splitHoverTitle").textContent = track.name + " · 第 " + (index + 1) + " 點" +
+      (canSplit ? "" : " · 起訖點不可分割");
+    $("splitHoverTime").textContent = "時間：" + formatTime(point.time);
+    $("splitHoverLatitude").textContent = "緯度：" + point.lat.toFixed(6) + "°（" + formatDmm(point.lat, "N", "S") + "）";
+    $("splitHoverLongitude").textContent = "經度：" + point.lon.toFixed(6) + "°（" + formatDmm(point.lon, "E", "W") + "）";
+
+    tooltip.hidden = false;
+    const mapRect = map.getContainer().getBoundingClientRect();
+    const left = Math.max(8, Math.min(event.point.x + 16, mapRect.width - tooltip.offsetWidth - 8));
+    const top = Math.max(8, Math.min(event.point.y + 16, mapRect.height - tooltip.offsetHeight - 8));
+    tooltip.style.left = left + "px";
+    tooltip.style.top = top + "px";
   }
 
   function splitTrack() {
@@ -724,15 +781,29 @@
     });
     map.addControl(new maplibregl.NavigationControl(), "top-left");
     map.addControl(new maplibregl.ScaleControl({ unit: "nautical" }), "bottom-left");
+    const canvasContainer = map.getCanvasContainer();
+    canvasContainer.style.setProperty("cursor", "default", "important");
+    map.on("dragstart", () => canvasContainer.style.setProperty("cursor", "grabbing", "important"));
+    map.on("dragend", () => canvasContainer.style.setProperty("cursor", "default", "important"));
+    map.on("mouseup", () => {
+      if (!map.isMoving()) canvasContainer.style.setProperty("cursor", "default", "important");
+    });
     map.on("load", () => { setupLayers(); makeGrid(); });
-    map.on("style.load", () => { setupLayers(); makeGrid(); });
+    map.on("style.load", () => {
+      setupLayers();
+      makeGrid();
+      hideSplitHover();
+      canvasContainer.style.setProperty("cursor", "default", "important");
+    });
     map.on("moveend", makeGrid);
     map.on("zoomend", makeGrid);
     map.on("mousemove", (event) => {
       $("coordinateReadout").textContent =
         formatDmm(event.lngLat.lat, "N", "S") + "  " +
         formatDmm(event.lngLat.lng, "E", "W");
+      updateSplitHover(event);
     });
+    canvasContainer.addEventListener("mouseleave", hideSplitHover);
     map.on("click", (event) => {
       if (!splitMode) return;
       const features = map.queryRenderedFeatures(event.point, { layers: ["track-points"] });
@@ -791,7 +862,8 @@
       if (!getActive()) return;
       splitMode = !splitMode;
       render();
-      status(splitMode ? "分割模式：請點選地圖上的軌跡點。" : "已離開分割模式。");
+      if (!splitMode) hideSplitHover();
+      status(splitMode ? "分割模式：移到節點可預覽座標與時間，點擊即可分割。" : "已離開分割模式。");
     };
     $("pointDialog").querySelector("form").addEventListener("submit", (event) => {
       event.preventDefault();
