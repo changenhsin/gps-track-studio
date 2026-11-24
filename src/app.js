@@ -2,6 +2,40 @@
   "use strict";
 
   const $ = (id) => document.getElementById(id);
+  const LANGUAGE_KEY = "gps-track-studio-language";
+  let language = "zh-TW";
+  try { const savedLanguage = localStorage.getItem(LANGUAGE_KEY); if (savedLanguage === "en" || savedLanguage === "zh-TW") language = savedLanguage; } catch (_) {}
+  const translations = {"zh-TW":{"brandSubtitle":"GPS 軌跡檢視與整理工具","betaTitle":"測試版本","fitAll":"縮放至全部","export":"匯出","exportHelp":"有選取軌跡時只匯出選取項目；否則匯出全部。","exportGpx":"匯出 GPX","exportKml":"匯出 KML","printMap":"列印地圖","language":"語言","languageLabel":"繁體中文","languageZh":"繁體中文","languageEn":"English","github":"GitHub 專案","clearAll":"清除全部","importTracks":"匯入航跡","multiFileDrop":"支援多檔案拖放","offlineParsing":"離線解析","dropSelect":"選擇檔案或拖放到這裡","uploadFormats":"NMEA / GPX / KML","noDataLoaded":"尚未匯入資料","trackList":"軌跡清單","trackCount":"{count} 條軌跡","merge":"合併","mergeCount":"合併 {count} 條","mergeButtonTitle":"合併已選取的軌跡（Ctrl／⌘ 點選多選，Shift 點選範圍選取）","emptyTracks":"尚未匯入軌跡，請拖放檔案至上方區域。","trackTools":"軌跡工具","reverse":"反轉方向","adjustTime":"調整時間","split":"分割軌跡","normalHint":"先選取一條軌跡即可使用工具。分割模式下，點選軌跡上的節點可從該點分割。","utcStorage":"時間資料以 UTC 儲存","timeZone":"顯示時區","mapAria":"GPS 軌跡地圖","basemap":"底圖","grid":"經緯網格","dialogShiftTitle":"調整軌跡時間","dialogShiftHelp":"輸入正數代表延後，負數代表提前。時間戳仍以 UTC 儲存。","minutes":"平移分鐘數","cancel":"取消","apply":"套用","dialogSplitTitle":"分割軌跡","splitQuestion":"是否從選取節點分割軌跡？","confirmSplit":"分割","systemTimeZone":"系統時區","timeZoneAuto":"系統自動","commonTimeZones":"常用時區","allTimeZones":"所有支援時區","timeZoneAutoSummary":"系統自動：{zone}","timeZoneCurrentSummary":"目前顯示：{zone}","timezoneUnsupported":"所選時區不受此瀏覽器支援，已改回系統自動。","nmeaNoValid":"找不到有效的 NMEA 定位資料（RMC/GGA）","nmeaNoDateWarning":"此檔案沒有日期資訊，暫以目前 UTC 日期補值，請先核對日期。","gpxXmlError":"GPX XML 格式錯誤","gpxNoTrack":"GPX 中沒有可讀取的軌跡點","kmlXmlError":"KML XML 格式錯誤","kmlNoLine":"KML 中找不到可用的 LineString","noValidTrack":"軌跡沒有有效座標","importResult":"已匯入 {count} 條軌跡","fileWarning":"{name}：{message}","fileError":"{name}：{message}","importFailed":"匯入失敗：","timeNotProvided":"時間未提供","selectedCount":" · 已選取 {count}","pointDistance":"{count} 點 · {distance} NM","startTime":"起 {time}","endTime":"迄 {time}","timeRangeMissing":"起訖時間未提供","deleteTrack":"刪除這條軌跡","deleteAria":"刪除 {name}","delete":"刪除","confirmDelete":"確定刪除軌跡「{name}」？","deletedTrack":"已刪除軌跡：「{name}」。","splitModeEnd":"結束分割模式","splitModeHint":"移到節點可預覽時間與座標；點擊節點即可分割，分割點會保留在兩段。","trackSelectionHint":"點選軌跡列可設為目前軌跡；Ctrl／⌘ 點選多選或 Shift 範圍選取，再按「合併」。","selectTwoTracks":"請先使用 Ctrl／⌘ 點選至少兩條軌跡，或 Shift 點選一段範圍。","mergedTrackName":"合併軌跡","mergeSuccessChronological":"已合併 {count} 條軌跡，共 {points} 點。依各軌跡起始時間排序，並保留每條軌跡內部點序。","mergeSuccessList":"已合併 {count} 條軌跡，共 {points} 點。依軌跡清單順序串接，保留每條軌跡內部點序；時間不完整或有重疊，未將各軌跡點位交錯排序。","selectMiddlePoint":"請選擇軌跡中間的點進行分割。","splitDialogDescription":"將在第 {index} 點分割「{name}」。分割點會保留在兩段軌跡中。","pointTitle":"{name} · 第 {index} 點","pointNotSplittable":" · 起訖點不可分割","timeLabel":"時間：{time}","latitudeLabel":"緯度：{coordinate}","longitudeLabel":"經度：{coordinate}","splitSuccess":"軌跡已分割為兩段。","shiftSuccess":"已平移 {minutes} 分鐘；座標與點位順序未變更。","mapNotReady":"地圖尚未準備完成，請稍後再試。","mapCaptureError":"無法擷取目前地圖畫面，請重新整理後再試。","mapImageError":"地圖列印影像載入失敗，請再試一次。","mapLibraryError":"地圖程式載入失敗；請確認網路連線後重新整理。","confirmClear":"確定要清除所有軌跡嗎？","clearSuccess":"已清除所有軌跡。","reverseAsc":"方向與時間已反轉；保留原始起訖時間及總時長，並讓新方向的時間維持遞增。","reverseDesc":"方向已反轉；原始時間本來是倒序，反轉點位後已恢復為遞增順序。","reverseSame":"方向已反轉；所有點的時間相同，因此時間值不需變更。","reverseNoTime":"方向已反轉；這條軌跡沒有時間資料可調整。","reverseFewTimes":"方向已反轉；有效時間資料不足兩筆，因此保留原時間值。","reverseIrregular":"方向已反轉；原始時間點並非依序排列，為避免破壞資料，保留各點原時間值。","splitModeStatus":"分割模式：移到節點可預覽座標與時間，點擊即可分割。","splitModeExited":"已離開分割模式。","splitMarkerLabel":"GPS 軌跡地圖列印畫面","pageDescription":"GPS Track Studio — 輕量、以瀏覽器為基礎的 GPS 軌跡檢視與編輯工具。","trackRowTitle":"點選設為目前軌跡；Ctrl／⌘ 點選可多選，Shift 點選可範圍選取","visibility":"顯示／隱藏軌跡","visibilityAria":"顯示或隱藏 {name}","trackColors":"軌跡顏色","setColor":"設定顏色 {color}","customRgb":"自訂 RGB／HEX 顏色","customTrackColor":"自訂軌跡顏色"},"en":{"brandSubtitle":"GPS Track Viewer & Editor","betaTitle":"Beta release","fitAll":"Fit All Tracks","export":"Export","exportHelp":"When tracks are selected, only selected tracks are exported. Otherwise, all tracks are exported.","exportGpx":"Export GPX","exportKml":"Export KML","printMap":"Print Map","language":"Language","languageLabel":"English","languageZh":"繁體中文","languageEn":"English","github":"GitHub Repository","clearAll":"Clear All","importTracks":"Import Tracks","multiFileDrop":"Drag and drop multiple files","offlineParsing":"Local Processing","dropSelect":"Choose files or drop them here","uploadFormats":"NMEA / GPX / KML","noDataLoaded":"No tracks imported","trackList":"Track List","trackCount":"{count} track(s)","merge":"Merge","mergeCount":"Merge {count}","mergeButtonTitle":"Merge selected tracks (Ctrl/⌘-click to select multiple; Shift-click to select a range)","emptyTracks":"No tracks imported yet. Drop files in the area above.","trackTools":"Track Tools","reverse":"Reverse Direction","adjustTime":"Adjust Time","split":"Split Track","normalHint":"Select a track to use the tools. In split mode, click a point on the track to split it.","utcStorage":"Timestamps are stored in UTC","timeZone":"Display Time Zone","mapAria":"GPS track map","basemap":"Basemap","grid":"Coordinate Grid","dialogShiftTitle":"Adjust Track Time","dialogShiftHelp":"Positive values move timestamps forward; negative values move them backward. Timestamps remain stored in UTC.","minutes":"Offset in minutes","cancel":"Cancel","apply":"Apply","dialogSplitTitle":"Split Track","splitQuestion":"Split the track at the selected point?","confirmSplit":"Split","systemTimeZone":"System time zone","timeZoneAuto":"System Default","commonTimeZones":"Common Time Zones","allTimeZones":"All Supported Time Zones","timeZoneAutoSummary":"System default: {zone}","timeZoneCurrentSummary":"Displaying: {zone}","timezoneUnsupported":"This time zone is not supported by your browser. The system default has been restored.","nmeaNoValid":"No valid NMEA positioning data found (RMC/GGA).","nmeaNoDateWarning":"This file has no date information. The current UTC date was used as a fallback; please verify the date.","gpxXmlError":"Invalid GPX XML.","gpxNoTrack":"No readable track points found in the GPX file.","kmlXmlError":"Invalid KML XML.","kmlNoLine":"No usable LineString found in the KML file.","noValidTrack":"The track contains no valid coordinates.","importResult":"Imported {count} track(s)","fileWarning":"{name}: {message}","fileError":"{name}: {message}","importFailed":"Import errors:","timeNotProvided":"Time not provided","selectedCount":" · {count} selected","pointDistance":"{count} points · {distance} NM","startTime":"Start {time}","endTime":"End {time}","timeRangeMissing":"Start/end time not provided","deleteTrack":"Delete this track","deleteAria":"Delete {name}","delete":"Delete","confirmDelete":"Delete track “{name}”?","deletedTrack":"Deleted track: “{name}”.","splitModeEnd":"Exit Split Mode","splitModeHint":"Hover over a point to preview its coordinates and time. Click a point to split; the split point is kept in both tracks.","trackSelectionHint":"Click a track row to make it active. Ctrl/⌘-click to select multiple tracks or Shift-click for a range, then choose Merge.","selectTwoTracks":"Use Ctrl/⌘-click to select at least two tracks, or Shift-click to select a range.","mergedTrackName":"Merged Tracks","mergeSuccessChronological":"Merged {count} track(s), {points} points total. Tracks were ordered by start time, preserving each track's internal point order.","mergeSuccessList":"Merged {count} track(s), {points} points total. Tracks were concatenated in list order, preserving each track's internal point order. Timestamps were incomplete or overlapping, so individual points were not interleaved.","selectMiddlePoint":"Select a point inside the track to split it.","splitDialogDescription":"Split “{name}” at point {index}. The split point will be kept in both tracks.","pointTitle":"{name} · Point {index}","pointNotSplittable":" · Start and end points cannot be split","timeLabel":"Time: {time}","latitudeLabel":"Latitude: {coordinate}","longitudeLabel":"Longitude: {coordinate}","splitSuccess":"The track has been split into two tracks.","shiftSuccess":"Shifted timestamps by {minutes} minute(s). Coordinates and point order are unchanged.","mapNotReady":"The map is not ready yet. Please try again in a moment.","mapCaptureError":"Unable to capture the current map. Please refresh and try again.","mapImageError":"The map print image failed to load. Please try again.","mapLibraryError":"The map library failed to load. Check your internet connection and refresh the page.","confirmClear":"Clear all tracks?","clearSuccess":"All tracks have been cleared.","reverseAsc":"Direction and timestamps were reversed. The original start/end time and duration were preserved, with timestamps increasing along the new direction.","reverseDesc":"Direction reversed. The original timestamps were descending and are now increasing along the reversed track.","reverseSame":"Direction reversed. All points share the same timestamp, so no timestamp changes were needed.","reverseNoTime":"Direction reversed. This track has no timestamps to adjust.","reverseFewTimes":"Direction reversed. Fewer than two valid timestamps were available, so the original values were kept.","reverseIrregular":"Direction reversed. The original timestamps were not sequential, so their values were kept to avoid altering the data.","splitModeStatus":"Split mode: hover over a point to preview its coordinates and time; click a point to split the track.","splitModeExited":"Split mode ended.","splitMarkerLabel":"GPS track map print image","pageDescription":"GPS Track Studio — a lightweight, browser-based GPS track viewer and editor.","trackRowTitle":"Click to make this the active track. Ctrl/⌘-click selects multiple tracks; Shift-click selects a range.","visibility":"Show/hide track","visibilityAria":"Show or hide {name}","trackColors":"Track colors","setColor":"Set color {color}","customRgb":"Custom RGB/HEX color","customTrackColor":"Custom track color"}};
+  function t(key, values) {
+    const dictionary = translations[language] || translations["zh-TW"];
+    let message = dictionary[key] || translations["zh-TW"][key] || key;
+    if (values) Object.entries(values).forEach(([name, value]) => { message = message.replaceAll("{" + name + "}", String(value)); });
+    return message;
+  }
+  let lastStatus = null;
+  function applyLanguage(nextLanguage, persist) {
+    language = nextLanguage === "en" ? "en" : "zh-TW";
+    if (persist !== false) { try { localStorage.setItem(LANGUAGE_KEY, language); } catch (_) {} }
+    document.documentElement.lang = language === "en" ? "en" : "zh-Hant";
+    const description = document.querySelector('meta[name="description"]');
+    if (description) description.content = t("pageDescription");
+    document.querySelectorAll("[data-i18n]").forEach((node) => { node.textContent = t(node.getAttribute("data-i18n")); });
+    document.querySelectorAll("[data-i18n-title]").forEach((node) => { node.title = t(node.getAttribute("data-i18n-title")); });
+    document.querySelectorAll("[data-i18n-aria-label]").forEach((node) => { node.setAttribute("aria-label", t(node.getAttribute("data-i18n-aria-label"))); });
+    $("languageLabel").textContent = t("languageLabel");
+    $("languageButton").setAttribute("aria-label", t("language"));
+    $("languageZhBtn").setAttribute("aria-pressed", language === "zh-TW" ? "true" : "false");
+    $("languageEnBtn").setAttribute("aria-pressed", language === "en" ? "true" : "false");
+    timeFormatter = createTimeFormatter();
+    initializeTimeZones();
+    if (lastStatus) { $("statusMessage").textContent = t(lastStatus.key, lastStatus.values); $("statusMessage").style.color = lastStatus.bad ? "#a63d3d" : ""; }
+    if ($("trackList")) render();
+  }
+  function setLanguage(nextLanguage) {
+    applyLanguage(nextLanguage, true);
+    $("languageDropdown").open = false;
+  }
+
   const colors = ["#e45757", "#2878b8", "#169b76", "#d99427", "#8a63ba", "#cf6096", "#0f8b8d", "#7a8f30"];
   const styles = {
     liberty: "https://tiles.openfreemap.org/styles/liberty",
@@ -31,7 +65,7 @@
       hour12: false
     };
     if (displayTimeZone !== "auto") options.timeZone = displayTimeZone;
-    return new Intl.DateTimeFormat("zh-TW", options);
+    return new Intl.DateTimeFormat(language === "en" ? "en-US" : "zh-TW", options);
   }
 
   let timeFormatter;
@@ -43,13 +77,13 @@
   }
 
   function currentSystemTimeZone() {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || "系統時區";
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || t("systemTimeZone");
   }
 
   function updateTimeZoneSummary() {
     $("timezoneSummary").textContent = displayTimeZone === "auto"
-      ? "系統自動：" + currentSystemTimeZone()
-      : "目前顯示：" + displayTimeZone;
+      ? t("timeZoneAutoSummary", { zone: currentSystemTimeZone() })
+      : t("timeZoneCurrentSummary", { zone: displayTimeZone });
   }
 
   function initializeTimeZones() {
@@ -65,13 +99,13 @@
     select.replaceChildren();
     const automatic = document.createElement("option");
     automatic.value = "auto";
-    automatic.textContent = "系統自動";
+    automatic.textContent = t("timeZoneAuto");
     select.append(automatic);
 
     const commonGroup = document.createElement("optgroup");
-    commonGroup.label = "常用時區";
+    commonGroup.label = t("commonTimeZones");
     const allGroup = document.createElement("optgroup");
-    allGroup.label = "所有支援時區";
+    allGroup.label = t("allTimeZones");
     const added = new Set();
     common.forEach((zone) => {
       const option = document.createElement("option");
@@ -110,7 +144,7 @@
       displayTimeZone = "auto";
       timeFormatter = createTimeFormatter();
       $("timeZoneSelect").value = "auto";
-      status("所選時區不受此瀏覽器支援，已改回系統自動。", true);
+      status("timezoneUnsupported", true);
     }
     try {
       localStorage.setItem(TIMEZONE_KEY, displayTimeZone);
@@ -121,8 +155,9 @@
     render();
   }
 
-  function status(message, bad) {
-    $("statusMessage").textContent = message;
+  function status(key, bad, values) {
+    lastStatus = { key, bad: Boolean(bad), values: values || null };
+    $("statusMessage").textContent = t(key, values);
     $("statusMessage").style.color = bad ? "#a63d3d" : "";
   }
 
@@ -232,13 +267,13 @@
     }
 
     const result = Array.from(points.values()).sort((a, b) => a.time - b.time);
-    if (!result.length) throw new Error("找不到有效的 NMEA 定位資料（RMC/GGA）");
-    return { points: result, warning: usedFallbackDate ? "此檔案沒有日期資訊，暫以目前 UTC 日期補值，請先核對日期。" : "" };
+    if (!result.length) throw new Error(t("nmeaNoValid"));
+    return { points: result, warning: usedFallbackDate ? t("nmeaNoDateWarning") : "" };
   }
 
   function parseGpx(text, filename) {
     const doc = new DOMParser().parseFromString(text, "application/xml");
-    if (doc.querySelector("parsererror")) throw new Error("GPX XML 格式錯誤");
+    if (doc.querySelector("parsererror")) throw new Error(t("gpxXmlError"));
     const toPoint = (node) => {
       const lat = Number(node.getAttribute("lat"));
       const lon = Number(node.getAttribute("lon"));
@@ -263,13 +298,13 @@
       const points = nodes.map(toPoint).filter(validPoint);
       if (points.length) result.push({ name: filename, points });
     }
-    if (!result.length) throw new Error("GPX 中沒有可讀取的軌跡點");
+    if (!result.length) throw new Error(t("gpxNoTrack"));
     return result;
   }
 
   function parseKml(text, filename) {
     const doc = new DOMParser().parseFromString(text, "application/xml");
-    if (doc.querySelector("parsererror")) throw new Error("KML XML 格式錯誤");
+    if (doc.querySelector("parsererror")) throw new Error(t("kmlXmlError"));
     const lines = Array.from(doc.getElementsByTagNameNS("*", "LineString"));
     const result = [];
     lines.forEach((line, index) => {
@@ -281,13 +316,13 @@
       }).filter(validPoint);
       if (points.length) result.push({ name: lines.length > 1 ? filename + " (" + (index + 1) + ")" : filename, points });
     });
-    if (!result.length) throw new Error("KML 中找不到可用的 LineString");
+    if (!result.length) throw new Error(t("kmlNoLine"));
     return result;
   }
 
   function addTrack(name, points) {
     const clean = points.filter(validPoint);
-    if (!clean.length) throw new Error("軌跡沒有有效座標");
+    if (!clean.length) throw new Error(t("noValidTrack"));
     tracks.push({
       id: makeId(), name: name, points: clean,
       color: colors[colorIndex++ % colors.length],
@@ -309,18 +344,18 @@
         else {
           const result = parseNmea(text);
           parsed = [{ name: file.name, points: result.points }];
-          if (result.warning) warnings.push(file.name + "：" + result.warning);
+          if (result.warning) warnings.push(t("fileWarning", { name: file.name, message: result.warning }));
         }
         parsed.forEach((item) => { addTrack(item.name, item.points); imported += 1; });
       } catch (error) {
-        errors.push(file.name + "：" + error.message);
+        errors.push(t("fileError", { name: file.name, message: error.message }));
       }
     }
     render();
     fitAll();
-    let message = "已匯入 " + imported + " 條軌跡";
+    let message = t("importResult", { count: imported });
     if (warnings.length) message += "\n" + warnings.join("\n");
-    if (errors.length) message += "\n匯入失敗：\n" + errors.join("\n");
+    if (errors.length) message += "\n" + t("importFailed") + "\n" + errors.join("\n");
     status(message, errors.length > 0);
   }
 
@@ -440,7 +475,7 @@
   }
 
   function formatTime(value) {
-    return Number.isFinite(value) ? timeFormatter.format(new Date(value)) : "時間未提供";
+    return Number.isFinite(value) ? timeFormatter.format(new Date(value)) : t("timeNotProvided");
   }
 
   function activateTrack(track, event) {
@@ -467,11 +502,11 @@
     const root = $("trackList");
     root.replaceChildren();
     const selectedCount = tracks.filter((track) => track.selected).length;
-    $("trackCount").textContent = tracks.length + " 條軌跡" +
-      (selectedCount ? " · 已選取 " + selectedCount : "");
+    $("trackCount").textContent = t("trackCount", { count: tracks.length }) +
+      (selectedCount ? t("selectedCount", { count: selectedCount }) : "");
     $("mergeBtn").disabled = selectedCount < 2;
-    $("mergeBtn").textContent = selectedCount >= 2 ? "合併 " + selectedCount + " 條" : "合併";
-    $("mergeBtn").title = "合併已選取的軌跡（Ctrl／⌘ 點選多選，Shift 點選範圍選取）";
+    $("mergeBtn").textContent = selectedCount >= 2 ? t("mergeCount", { count: selectedCount }) : t("merge");
+    $("mergeBtn").title = t("mergeButtonTitle");
     const activeTrack = getActive();
     ["reverseBtn", "shiftTimeBtn", "splitModeBtn"].forEach((id) => { $(id).disabled = !activeTrack; });
     ["exportGpxBtn", "exportKmlBtn"].forEach((id) => { $(id).disabled = tracks.length === 0; });
@@ -479,7 +514,7 @@
     if (!tracks.length) {
       const empty = document.createElement("div");
       empty.className = "empty-state";
-      empty.textContent = "尚未匯入軌跡，請拖放檔案至上方區域。";
+      empty.textContent = t("emptyTracks");
       root.append(empty);
     }
 
@@ -492,26 +527,26 @@
       row.setAttribute("role", "button");
       row.setAttribute("aria-pressed", track.selected ? "true" : "false");
       row.setAttribute("aria-current", activeId === track.id ? "true" : "false");
-      row.title = "點選設為目前軌跡；Ctrl／⌘ 點選可多選，Shift 點選可範圍選取";
+      row.title = t("trackRowTitle");
 
       const visible = document.createElement("input");
       visible.type = "checkbox";
       visible.checked = track.visible;
-      visible.title = "顯示／隱藏軌跡";
-      visible.setAttribute("aria-label", "顯示或隱藏 " + track.name);
+      visible.title = t("visibility");
+      visible.setAttribute("aria-label", t("visibilityAria", { name: track.name }));
       visible.addEventListener("click", (event) => event.stopPropagation());
       visible.onchange = () => { track.visible = visible.checked; draw(); };
 
       const palette = document.createElement("div");
       palette.className = "track-colors";
-      palette.setAttribute("aria-label", "軌跡顏色");
+      palette.setAttribute("aria-label", t("trackColors"));
       colors.forEach((hex) => {
         const swatch = document.createElement("button");
         swatch.type = "button";
         swatch.className = "color-swatch" + (track.color.toLowerCase() === hex ? " active" : "");
         swatch.style.backgroundColor = hex;
-        swatch.title = "設定顏色 " + hex;
-        swatch.setAttribute("aria-label", "設定顏色 " + hex);
+        swatch.title = t("setColor", { color: hex });
+        swatch.setAttribute("aria-label", t("setColor", { color: hex }));
         swatch.onclick = (event) => {
           event.stopPropagation();
           track.color = hex;
@@ -524,8 +559,8 @@
       customColor.type = "color";
       customColor.className = "track-color";
       customColor.value = track.color;
-      customColor.title = "自訂 RGB／HEX 顏色";
-      customColor.setAttribute("aria-label", "自訂軌跡顏色");
+      customColor.title = t("customRgb");
+      customColor.setAttribute("aria-label", t("customTrackColor"));
       customColor.addEventListener("click", (event) => event.stopPropagation());
       customColor.oninput = () => {
         track.color = customColor.value;
@@ -541,31 +576,30 @@
       name.textContent = track.name;
       const detail = document.createElement("div");
       detail.className = "track-detail";
-      detail.textContent = track.points.length + " 點 · " +
-        (haversine(track.points) / 1852).toFixed(2) + " NM";
+      detail.textContent = t("pointDistance", { count: track.points.length, distance: (haversine(track.points) / 1852).toFixed(2) });
       const timeRange = document.createElement("div");
       timeRange.className = "track-time-range";
       const times = track.points.map((point) => point.time).filter(Number.isFinite);
       timeRange.textContent = times.length
-        ? "起 " + formatTime(Math.min(...times)) + "\n迄 " + formatTime(Math.max(...times))
-        : "起訖時間未提供";
+        ? t("startTime", { time: formatTime(Math.min(...times)) }) + "\n" + t("endTime", { time: formatTime(Math.max(...times)) })
+        : t("timeRangeMissing");
       meta.append(name, detail, timeRange);
 
       const remove = document.createElement("button");
       remove.className = "track-action";
       remove.type = "button";
-      remove.title = "刪除這條軌跡";
-      remove.setAttribute("aria-label", "刪除 " + track.name);
-      remove.textContent = "刪除";
+      remove.title = t("deleteTrack");
+      remove.setAttribute("aria-label", t("deleteAria", { name: track.name }));
+      remove.textContent = t("delete");
       remove.onclick = (event) => {
         event.stopPropagation();
-        if (!confirm("確定刪除軌跡「" + track.name + "」？")) return;
+        if (!confirm(t("confirmDelete", { name: track.name }))) return;
         tracks = tracks.filter((item) => item.id !== track.id);
         if (activeId === track.id) activeId = tracks[0] ? tracks[0].id : null;
         render();
         draw();
         fitAll();
-        status("已刪除軌跡：「" + track.name + "」。");
+        status("deletedTrack", false, { name: track.name });
       };
 
       row.addEventListener("click", (event) => {
@@ -583,10 +617,10 @@
     });
 
     $("splitModeBtn").classList.toggle("active", splitMode);
-    $("splitModeBtn").textContent = splitMode ? "結束分割模式" : "分割軌跡";
+    $("splitModeBtn").textContent = splitMode ? t("splitModeEnd") : t("split");
     $("toolHint").textContent = splitMode
-      ? "移到節點可預覽時間與座標；點擊節點即可分割，分割點會保留在兩段。"
-      : "點選軌跡列可設為目前軌跡；Ctrl／⌘ 點選多選或 Shift 範圍選取，再按「合併」。";
+      ? t("splitModeHint")
+      : t("trackSelectionHint");
     draw();
   }
 
@@ -655,7 +689,7 @@
   function mergeSelected() {
     const selected = tracks.filter((track) => track.selected);
     if (selected.length < 2) {
-      status("請先使用 Ctrl／⌘ 點選至少兩條軌跡，或 Shift 點選一段範圍。", true);
+      status("selectTwoTracks", true);
       return;
     }
 
@@ -679,7 +713,7 @@
     const usedChronologicalOrder = noTimeOverlap;
 
     tracks = tracks.filter((track) => !track.selected);
-    addTrack("合併軌跡", mergedPoints);
+    addTrack(t("mergedTrackName"), mergedPoints);
     const merged = tracks[tracks.length - 1];
     merged.color = mergedColor;
     merged.visible = mergedVisible;
@@ -689,10 +723,9 @@
     render();
     fit(merged);
     status(
-      "已合併 " + selected.length + " 條軌跡，共 " + mergedPointCount + " 點。" +
-      (usedChronologicalOrder
-        ? "依各軌跡起始時間排序，並保留每條軌跡內部點序。"
-        : "依軌跡清單順序串接，保留每條軌跡內部點序；時間不完整或有重疊，未將各軌跡點位交錯排序。")
+      usedChronologicalOrder
+        ? t("mergeSuccessChronological", { count: selected.length, points: mergedPointCount })
+        : t("mergeSuccessList", { count: selected.length, points: mergedPointCount })
     );
   }
 
@@ -703,12 +736,12 @@
   function beginSplit(trackId, index) {
     const track = tracks.find((item) => item.id === trackId);
     if (!track || index < 1 || index >= track.points.length - 1) {
-      status("請選擇軌跡中間的點進行分割。", true);
+      status("selectMiddlePoint", true);
       return;
     }
     splitTarget = { id: trackId, index: index };
     hideSplitHover();
-    $("splitDescription").textContent = "將在第 " + (index + 1) + " 點分割「" + track.name + "」。分割點會保留在兩段軌跡中。";
+    $("splitDescription").textContent = t("splitDialogDescription", { index: index + 1, name: track.name });
     $("pointDialog").showModal();
   }
 
@@ -740,11 +773,11 @@
     }
 
     const canSplit = index > 0 && index < track.points.length - 1;
-    $("splitHoverTitle").textContent = track.name + " · 第 " + (index + 1) + " 點" +
-      (canSplit ? "" : " · 起訖點不可分割");
-    $("splitHoverTime").textContent = "時間：" + formatTime(point.time);
-    $("splitHoverLatitude").textContent = "緯度：" + point.lat.toFixed(6) + "°（" + formatDmm(point.lat, "N", "S") + "）";
-    $("splitHoverLongitude").textContent = "經度：" + point.lon.toFixed(6) + "°（" + formatDmm(point.lon, "E", "W") + "）";
+    $("splitHoverTitle").textContent = t("pointTitle", { name: track.name, index: index + 1 }) +
+      (canSplit ? "" : t("pointNotSplittable"));
+    $("splitHoverTime").textContent = t("timeLabel", { time: formatTime(point.time) });
+    $("splitHoverLatitude").textContent = t("latitudeLabel", { coordinate: point.lat.toFixed(6) + "° (" + formatDmm(point.lat, "N", "S") + ")" });
+    $("splitHoverLongitude").textContent = t("longitudeLabel", { coordinate: point.lon.toFixed(6) + "° (" + formatDmm(point.lon, "E", "W") + ")" });
 
     tooltip.hidden = false;
     const mapRect = map.getContainer().getBoundingClientRect();
@@ -771,7 +804,7 @@
     $("pointDialog").close();
     render();
     fit(getActive());
-    status("軌跡已分割為兩段。");
+    status("splitSuccess");
   }
 
   function updateTimeShift(event) {
@@ -789,7 +822,7 @@
     });
     $("timeDialog").close();
     render();
-    status("已平移 " + minutes + " 分鐘；座標與點位順序未變更。");
+    status("shiftSuccess", false, { minutes });
   }
 
   function formatDmm(value, positive, negative) {
@@ -812,7 +845,7 @@
 
   function printMap() {
     if (!map) {
-      status("地圖尚未準備完成，請稍後再試。", true);
+      status("mapNotReady", true);
       return;
     }
 
@@ -830,14 +863,14 @@
       try {
         imageUrl = map.getCanvas().toDataURL("image/png");
       } catch (error) {
-        status("無法擷取目前地圖畫面，請重新整理後再試。", true);
+        status("mapCaptureError", true);
         return;
       }
 
       const sheet = document.createElement("section");
       sheet.id = "printSheet";
       const image = document.createElement("img");
-      image.alt = "GPS 軌跡地圖列印畫面";
+      image.alt = t("splitMarkerLabel");
       const attribution = document.createElement("div");
       attribution.className = "print-attribution";
       attribution.textContent = $("mapNote").textContent || "© OpenStreetMap contributors";
@@ -856,7 +889,7 @@
       }, { once: true });
       image.addEventListener("error", () => {
         cleanup();
-        status("地圖列印影像載入失敗，請再試一次。", true);
+        status("mapImageError", true);
       }, { once: true });
       image.src = imageUrl;
     };
@@ -869,7 +902,7 @@
 
   function initMap() {
     if (!window.maplibregl) {
-      status("地圖程式載入失敗；請確認網路連線後重新整理。", true);
+      status("mapLibraryError", true);
       return;
     }
     map = new maplibregl.Map({
@@ -931,14 +964,16 @@
     });
 
     $("fitAllBtn").onclick = fitAll;
+    $("languageZhBtn").onclick = () => setLanguage("zh-TW");
+    $("languageEnBtn").onclick = () => setLanguage("en");
     $("printBtn").onclick = printMap;
     $("clearAllBtn").onclick = () => {
-      if (tracks.length && confirm("確定要清除所有軌跡嗎？")) {
+      if (tracks.length && confirm(t("confirmClear"))) {
         tracks = [];
         activeId = null;
         splitMode = false;
         render();
-        status("已清除所有軌跡。");
+        status("clearSuccess");
       }
     };
     $("mergeBtn").onclick = mergeSelected;
@@ -966,17 +1001,17 @@
         active.points.forEach((point) => {
           if (Number.isFinite(point.time)) point.time = timeSum - point.time;
         });
-        message = "方向與時間已反轉；保留原始起訖時間及總時長，並讓新方向的時間維持遞增。";
+        message = "reverseAsc";
       } else if (originalTimes.length >= 2 && descending && !ascending) {
-        message = "方向已反轉；原始時間本來是倒序，反轉點位後已恢復為遞增順序。";
+        message = "reverseDesc";
       } else if (originalTimes.length >= 2 && ascending && descending) {
-        message = "方向已反轉；所有點的時間相同，因此時間值不需變更。";
+        message = "reverseSame";
       } else if (originalTimes.length === 0) {
-        message = "方向已反轉；這條軌跡沒有時間資料可調整。";
+        message = "reverseNoTime";
       } else if (originalTimes.length < 2) {
-        message = "方向已反轉；有效時間資料不足兩筆，因此保留原時間值。";
+        message = "reverseFewTimes";
       } else {
-        message = "方向已反轉；原始時間點並非依序排列，為避免破壞資料，保留各點原時間值。";
+        message = "reverseIrregular";
       }
 
       render();
@@ -994,7 +1029,7 @@
       splitMode = !splitMode;
       render();
       if (!splitMode) hideSplitHover();
-      status(splitMode ? "分割模式：移到節點可預覽座標與時間，點擊即可分割。" : "已離開分割模式。");
+      status(splitMode ? "splitModeStatus" : "splitModeExited");
     };
     $("pointDialog").querySelector("form").addEventListener("submit", (event) => {
       event.preventDefault();
@@ -1018,6 +1053,7 @@
   }
 
   document.addEventListener("DOMContentLoaded", () => {
+    applyLanguage(language, false);
     initializeTimeZones();
     bindEvents();
     initMap();
