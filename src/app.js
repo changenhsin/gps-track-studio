@@ -29,7 +29,7 @@
     timeFormatter = createTimeFormatter();
     initializeTimeZones();
     if (lastStatus) renderStatus();
-
+    hideSplitHover();
     if ($("trackList")) render();
   }
   function setLanguage(nextLanguage) {
