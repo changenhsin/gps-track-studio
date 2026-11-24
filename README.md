@@ -55,7 +55,7 @@ Then visit `http://localhost:8000`. An internet connection is required for the m
 3. Push changes to `main`, or run the **Deploy GPS Track Studio to GitHub Pages** workflow from the Actions tab.
 4. After the workflow completes successfully, open:
 
-   <https://changenhsin.github.io/gps-track-studio/>
+   <https://x1ngz-dev.github.io/gps-track-studio/>
 
 The workflow file is `.github/workflows/deploy.yml`. It publishes the static website after each push to `main`.
 
