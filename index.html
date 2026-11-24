@@ -19,10 +19,18 @@
         <h1>GPS Track Studio</h1>
         <p>GPS 軌跡檢視與整理工具</p>
       </div>
+      <span class="version-tag" title="測試版本">BETA · v0.1.0</span>
     </div>
     <div class="top-actions">
       <button class="button subtle" id="fitAllBtn" type="button">縮放至全部</button>
-      <button class="button subtle" id="exportKmlBtn" type="button" disabled>匯出 KML</button>
+      <details class="export-dropdown" id="exportDropdown">
+        <summary class="button subtle">匯出 <span aria-hidden="true">▾</span></summary>
+        <div class="export-menu">
+          <button id="exportGpxBtn" type="button" disabled>匯出 GPX</button>
+          <button id="exportKmlBtn" type="button" disabled>匯出 KML</button>
+          <p>有選取軌跡時只匯出選取項目；否則匯出全部。</p>
+        </div>
+      </details>
       <button class="button subtle" id="printBtn" type="button">列印地圖</button>
       <button class="button danger" id="clearAllBtn" type="button">清除全部</button>
     </div>
@@ -66,14 +74,17 @@
           <button class="tool-button" id="reverseBtn" type="button" disabled>反轉方向</button>
           <button class="tool-button" id="shiftTimeBtn" type="button" disabled>調整時間</button>
           <button class="tool-button" id="splitModeBtn" type="button" disabled>分割模式</button>
-          <button class="tool-button" id="exportAllBtn" type="button" disabled>匯出全部 GPX</button>
         </div>
         <p class="hint" id="toolHint">先選取一條軌跡即可使用工具。分割模式下，點選軌跡上的節點可從該點分割。</p>
       </section>
 
       <footer class="sidebar-footer">
         <span>時間資料以 UTC 儲存</span>
-        <span>顯示時區：台北 UTC+8</span>
+        <label class="timezone-control" for="timeZoneSelect">
+          顯示時區
+          <select id="timeZoneSelect" aria-label="軌跡時間顯示時區"></select>
+        </label>
+        <span id="timezoneSummary">系統自動偵測</span>
       </footer>
     </aside>
 
