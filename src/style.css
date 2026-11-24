@@ -143,22 +143,6 @@ h2 { margin:0; font-size:14px; font-weight:750; }
   .timezone-control select { max-width:170px; }
 }
 
-/* Apply the print layout before opening the native dialog so MapLibre
-   can resize and render the map at the final paper viewport dimensions. */
-html.print-layout,
-html.print-layout body { overflow:hidden; background:#fff; }
-html.print-layout .topbar,
-html.print-layout .sidebar,
-html.print-layout .map-toolbar,
-html.print-layout .coordinate-readout,
-html.print-layout .map-note,
-html.print-layout .maplibregl-ctrl-top-left,
-html.print-layout .maplibregl-ctrl-top-right { display:none !important; }
-html.print-layout .workspace { display:block; height:100vh; }
-html.print-layout .map-panel,
-html.print-layout #map { position:fixed; inset:0; width:100%; height:100%; }
-html.print-layout .maplibregl-ctrl-attrib { display:block !important; }
-
 /* Print a pixel-faithful snapshot of the current MapLibre canvas. */
 #printSheet { display:none; }
 
