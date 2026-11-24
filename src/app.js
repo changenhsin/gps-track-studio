@@ -799,6 +799,122 @@
     return (value >= 0 ? positive : negative) + " " + deg + "° " + min + "'";
   }
 
+  // Keep the exact geographic extent visible on screen when the print page
+  // changes the map container's aspect ratio, then restore the original camera.
+  let printSnapshot = null;
+
+  function preparePrintLayout() {
+    if (!map || printSnapshot) return;
+
+    const center = map.getCenter();
+    const bounds = map.getBounds();
+    printSnapshot = {
+      camera: {
+        center: [center.lng, center.lat],
+        zoom: map.getZoom(),
+        bearing: map.getBearing(),
+        pitch: map.getPitch()
+      },
+      bounds: bounds.toArray()
+    };
+
+    document.documentElement.classList.add("print-layout");
+    map.resize();
+
+    try {
+      const visibleBounds = new maplibregl.LngLatBounds(
+        printSnapshot.bounds[0],
+        printSnapshot.bounds[1]
+      );
+      const fittedCamera = map.cameraForBounds(visibleBounds, {
+        padding: 0,
+        bearing: printSnapshot.camera.bearing,
+        pitch: printSnapshot.camera.pitch,
+        maxZoom: map.getMaxZoom()
+      });
+
+      if (fittedCamera) {
+        map.jumpTo({
+          center: fittedCamera.center,
+          zoom: fittedCamera.zoom,
+          bearing: printSnapshot.camera.bearing,
+          pitch: printSnapshot.camera.pitch
+        });
+      } else {
+        map.jumpTo(printSnapshot.camera);
+      }
+    } catch (_) {
+      // If bounds fitting is unavailable, at least retain the original camera.
+      map.jumpTo(printSnapshot.camera);
+    }
+
+    map.triggerRepaint();
+  }
+
+  function restoreMapAfterPrint() {
+    if (!printSnapshot) {
+      document.documentElement.classList.remove("print-layout");
+      return;
+    }
+
+    const snapshot = printSnapshot;
+    printSnapshot = null;
+    document.documentElement.classList.remove("print-layout");
+
+    requestAnimationFrame(() => {
+      if (!map) return;
+      map.resize();
+      map.jumpTo(snapshot.camera);
+      map.triggerRepaint();
+    });
+  }
+
+  function printMap() {
+    if (!map) {
+      window.print();
+      return;
+    }
+
+    preparePrintLayout();
+
+    let started = false;
+    let fallbackTimer = null;
+    const startPrint = () => {
+      if (started) return;
+      started = true;
+      if (fallbackTimer !== null) window.clearTimeout(fallbackTimer);
+      window.print();
+    };
+
+    // Give the resized canvas a render cycle before the browser captures it.
+    requestAnimationFrame(() => {
+      if (!map || !map.isStyleLoaded()) {
+        startPrint();
+        return;
+      }
+      map.once("idle", startPrint);
+      fallbackTimer = window.setTimeout(startPrint, 2000);
+      map.triggerRepaint();
+    });
+  }
+
+  function installPrintHandlers() {
+    window.addEventListener("beforeprint", preparePrintLayout);
+    window.addEventListener("afterprint", restoreMapAfterPrint);
+
+    const printMedia = window.matchMedia("(print)");
+    const handlePrintMediaChange = (event) => {
+      if (event.matches) preparePrintLayout();
+      else restoreMapAfterPrint();
+    };
+
+    if (typeof printMedia.addEventListener === "function") {
+      printMedia.addEventListener("change", handlePrintMediaChange);
+    } else if (typeof printMedia.addListener === "function") {
+      printMedia.addListener(handlePrintMediaChange);
+    }
+  }
+
   function initMap() {
     if (!window.maplibregl) {
       status("地圖程式載入失敗；請確認網路連線後重新整理。", true);
@@ -812,6 +928,7 @@
       attributionControl: true,
       cooperativeGestures: true
     });
+    installPrintHandlers();
     map.addControl(new maplibregl.NavigationControl(), "top-left");
     map.addControl(new maplibregl.ScaleControl({ unit: "nautical" }), "bottom-left");
     const canvasContainer = map.getCanvasContainer();
@@ -862,7 +979,7 @@
     });
 
     $("fitAllBtn").onclick = fitAll;
-    $("printBtn").onclick = () => window.print();
+    $("printBtn").onclick = printMap;
     $("clearAllBtn").onclick = () => {
       if (tracks.length && confirm("確定要清除所有軌跡嗎？")) {
         tracks = [];
