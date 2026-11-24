@@ -687,7 +687,6 @@
     activeId = merged.id;
 
     render();
-    draw();
     fit(merged);
     status(
       "已合併 " + selected.length + " 條軌跡，共 " + mergedPointCount + " 點。" +
@@ -912,7 +911,6 @@
       }
 
       render();
-      draw();
       fit(active);
       status(message, !ascending && !descending && originalTimes.length >= 2);
     };

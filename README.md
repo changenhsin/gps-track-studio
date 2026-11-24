@@ -17,7 +17,7 @@ GPS Track Studio is currently an early **BETA** release. The interface and editi
 - Choose from a fixed color palette or set a custom RGB/HEX color
 - Delete individual tracks from the track list
 - Display start and end markers
-- Merge selected tracks without interleaving points from different tracks; tracks are ordered by start time only when their timestamps are complete, ascending and non-overlapping
+- Merge selected tracks in list order; when all tracks have complete, ascending, non-overlapping timestamps, the app orders whole tracks chronologically instead. Points from separate tracks are never interleaved
 - Reverse track direction and adapt timestamps to preserve the original time span while keeping timestamps ascending along the new direction
 - Split a track at a selected point on the map
 - Shift timestamps by a chosen number of minutes
