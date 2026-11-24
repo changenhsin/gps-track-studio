@@ -526,7 +526,7 @@
       timeRange.className = "track-time-range";
       const times = track.points.map((point) => point.time).filter(Number.isFinite);
       timeRange.textContent = times.length
-        ? "起 " + formatTime(Math.min(...times)) + "  /  迄 " + formatTime(Math.max(...times))
+        ? "起 " + formatTime(Math.min(...times)) + "\n迄 " + formatTime(Math.max(...times))
         : "起訖時間未提供";
       meta.append(name, detail, timeRange);
 
