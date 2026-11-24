@@ -17,8 +17,8 @@ GPS Track Studio is currently an early **BETA** release. The interface and editi
 - Choose from a fixed color palette or set a custom RGB/HEX color
 - Delete individual tracks from the track list
 - Display start and end markers
-- Merge selected tracks
-- Reverse point order
+- Merge selected tracks without interleaving points from different tracks; tracks are ordered by start time only when their timestamps are complete, ascending and non-overlapping
+- Reverse track direction and adapt timestamps to preserve the original time span while keeping timestamps ascending along the new direction
 - Split a track at a selected point on the map
 - Shift timestamps by a chosen number of minutes
 - Export tracks to GPX and KML from one menu in the top toolbar; selected tracks are exported when present, otherwise all tracks are exported
@@ -69,9 +69,16 @@ This prototype processes selected files in the browser. It does not include an a
 - Undo/redo and project save/load are not implemented yet.
 - Date-less NMEA logs fall back to the current UTC date; verify their date before using the result as a record.
 - KML import currently focuses on common `LineString` tracks.
-- Reverse changes point order but does not rewrite timestamps.
-- Merge orders points by time only when all merged points have timestamps; otherwise it keeps selected track order.
+- Reverse mirrors timestamp values across the original start/end time range when the source timestamps are chronological; irregular timestamp sequences are preserved with a warning.
+- Merge concatenates whole tracks and keeps each track's internal point order. It never interleaves individual points from separate tracks.
 - OpenFreeMap is a public third-party service and the map requires an internet connection.
+
+## Change history
+
+- **Initial BETA:** NMEA, GPX and KML import; MapLibre map display; track visibility, merge, reverse, split and GPX/KML export.
+- **Track-list update:** one visibility checkbox per track, row-based activation, modifier-key multi-selection, color palette/custom color, individual deletion, start/end time display and selectable display time zone.
+- **Map interaction fixes:** arrow cursor at rest, drag-only grabbing cursor, split-point hover details and restoration of custom map layers after basemap changes.
+- **Operation reliability:** chronological track-level merge without point interleaving, visible multi-selection state, and reverse-direction timestamp adaptation.
 
 ## Roadmap
 

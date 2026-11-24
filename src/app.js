@@ -466,8 +466,12 @@
   function render() {
     const root = $("trackList");
     root.replaceChildren();
-    $("trackCount").textContent = tracks.length + " 條軌跡";
-    $("mergeBtn").disabled = tracks.filter((track) => track.selected).length < 2;
+    const selectedCount = tracks.filter((track) => track.selected).length;
+    $("trackCount").textContent = tracks.length + " 條軌跡" +
+      (selectedCount ? " · 已選取 " + selectedCount : "");
+    $("mergeBtn").disabled = selectedCount < 2;
+    $("mergeBtn").textContent = selectedCount >= 2 ? "合併 " + selectedCount + " 條" : "合併";
+    $("mergeBtn").title = "合併已選取的軌跡（Ctrl／⌘ 點選多選，Shift 點選範圍選取）";
     const activeTrack = getActive();
     ["reverseBtn", "shiftTimeBtn", "splitModeBtn"].forEach((id) => { $(id).disabled = !activeTrack; });
     ["exportGpxBtn", "exportKmlBtn"].forEach((id) => { $(id).disabled = tracks.length === 0; });
@@ -481,10 +485,13 @@
 
     tracks.forEach((track) => {
       const row = document.createElement("div");
-      row.className = "track-row" + (activeId === track.id ? " active" : "");
+      row.className = "track-row" +
+        (activeId === track.id ? " active" : "") +
+        (track.selected ? " selected" : "");
       row.tabIndex = 0;
       row.setAttribute("role", "button");
-      row.setAttribute("aria-pressed", activeId === track.id ? "true" : "false");
+      row.setAttribute("aria-pressed", track.selected ? "true" : "false");
+      row.setAttribute("aria-current", activeId === track.id ? "true" : "false");
       row.title = "點選設為目前軌跡；Ctrl／⌘ 點選可多選，Shift 點選可範圍選取";
 
       const visible = document.createElement("input");
@@ -578,8 +585,8 @@
     $("splitModeBtn").classList.toggle("active", splitMode);
     $("splitModeBtn").textContent = splitMode ? "結束分割模式" : "分割軌跡";
     $("toolHint").textContent = splitMode
-      ? "請在地圖上點選要分割的位置；分割點會同時保留在前後兩段。"
-      : "選取一條軌跡後可反轉或平移時間；選取兩條以上可合併。";
+      ? "移到節點可預覽時間與座標；點擊節點即可分割，分割點會保留在兩段。"
+      : "點選軌跡列可設為目前軌跡；Ctrl／⌘ 點選多選或 Shift 範圍選取，再按「合併」。";
     draw();
   }
 
@@ -647,20 +654,47 @@
 
   function mergeSelected() {
     const selected = tracks.filter((track) => track.selected);
-    if (selected.length < 2) return;
-    const timed = selected.every((track) => track.points.every((p) => Number.isFinite(p.time)));
-    let points = [];
-    selected.forEach((track, trackIndex) => {
-      track.points.forEach((point, index) => points.push({ point: point, trackIndex: trackIndex, index: index }));
-    });
-    if (timed) points.sort((a, b) => a.point.time - b.point.time);
-    else points.sort((a, b) => a.trackIndex - b.trackIndex || a.index - b.index);
+    if (selected.length < 2) {
+      status("請先使用 Ctrl／⌘ 點選至少兩條軌跡，或 Shift 點選一段範圍。", true);
+      return;
+    }
+
+    const hasOrderedTimes = (track) => {
+      if (!track.points.length || !track.points.every((point) => Number.isFinite(point.time))) return false;
+      return track.points.every((point, index) => index === 0 || point.time >= track.points[index - 1].time);
+    };
+    const allTimed = selected.every(hasOrderedTimes);
+    const chronological = allTimed
+      ? selected.slice().sort((a, b) => a.points[0].time - b.points[0].time)
+      : selected.slice();
+
+    const noTimeOverlap = allTimed && chronological.every((track, index) =>
+      index === 0 || chronological[index - 1].points[chronological[index - 1].points.length - 1].time <= track.points[0].time
+    );
+    const orderedTracks = noTimeOverlap ? chronological : selected;
+    const mergedPoints = orderedTracks.flatMap((track) => track.points);
+    const mergedColor = orderedTracks[0].color;
+    const mergedVisible = orderedTracks.some((track) => track.visible);
+    const mergedPointCount = mergedPoints.length;
+    const usedChronologicalOrder = noTimeOverlap;
+
     tracks = tracks.filter((track) => !track.selected);
-    addTrack("合併軌跡", points.map((item) => item.point));
-    activeId = tracks[tracks.length - 1].id;
+    addTrack("合併軌跡", mergedPoints);
+    const merged = tracks[tracks.length - 1];
+    merged.color = mergedColor;
+    merged.visible = mergedVisible;
+    merged.selected = true;
+    activeId = merged.id;
+
     render();
-    fit(getActive());
-    status("已合併 " + selected.length + " 條軌跡。");
+    draw();
+    fit(merged);
+    status(
+      "已合併 " + selected.length + " 條軌跡，共 " + mergedPointCount + " 點。" +
+      (usedChronologicalOrder
+        ? "依各軌跡起始時間排序，並保留每條軌跡內部點序。"
+        : "依軌跡清單順序串接，保留每條軌跡內部點序；時間不完整或有重疊，未將各軌跡點位交錯排序。")
+    );
   }
 
   function getActive() {
@@ -782,18 +816,14 @@
     map.addControl(new maplibregl.NavigationControl(), "top-left");
     map.addControl(new maplibregl.ScaleControl({ unit: "nautical" }), "bottom-left");
     const canvasContainer = map.getCanvasContainer();
-    canvasContainer.style.setProperty("cursor", "default", "important");
-    map.on("dragstart", () => canvasContainer.style.setProperty("cursor", "grabbing", "important"));
-    map.on("dragend", () => canvasContainer.style.setProperty("cursor", "default", "important"));
-    map.on("mouseup", () => {
-      if (!map.isMoving()) canvasContainer.style.setProperty("cursor", "default", "important");
-    });
+    map.on("dragstart", () => canvasContainer.classList.add("is-dragging"));
+    map.on("dragend", () => canvasContainer.classList.remove("is-dragging"));
     map.on("load", () => { setupLayers(); makeGrid(); });
     map.on("style.load", () => {
       setupLayers();
       makeGrid();
       hideSplitHover();
-      canvasContainer.style.setProperty("cursor", "default", "important");
+      canvasContainer.classList.remove("is-dragging");
     });
     map.on("moveend", makeGrid);
     map.on("zoomend", makeGrid);
@@ -847,10 +877,44 @@
     $("reverseBtn").onclick = () => {
       const active = getActive();
       if (!active) return;
+
+      const originalTimes = active.points
+        .map((point) => point.time)
+        .filter(Number.isFinite);
+      const ascending = originalTimes.every((time, index) =>
+        index === 0 || time >= originalTimes[index - 1]
+      );
+      const descending = originalTimes.every((time, index) =>
+        index === 0 || time <= originalTimes[index - 1]
+      );
+
       active.points.reverse();
+
+      let message;
+      if (originalTimes.length >= 2 && ascending && !descending) {
+        const startTime = originalTimes[0];
+        const endTime = originalTimes[originalTimes.length - 1];
+        const timeSum = startTime + endTime;
+        active.points.forEach((point) => {
+          if (Number.isFinite(point.time)) point.time = timeSum - point.time;
+        });
+        message = "方向與時間已反轉；保留原始起訖時間及總時長，並讓新方向的時間維持遞增。";
+      } else if (originalTimes.length >= 2 && descending && !ascending) {
+        message = "方向已反轉；原始時間本來是倒序，反轉點位後已恢復為遞增順序。";
+      } else if (originalTimes.length >= 2 && ascending && descending) {
+        message = "方向已反轉；所有點的時間相同，因此時間值不需變更。";
+      } else if (originalTimes.length === 0) {
+        message = "方向已反轉；這條軌跡沒有時間資料可調整。";
+      } else if (originalTimes.length < 2) {
+        message = "方向已反轉；有效時間資料不足兩筆，因此保留原時間值。";
+      } else {
+        message = "方向已反轉；原始時間點並非依序排列，為避免破壞資料，保留各點原時間值。";
+      }
+
       render();
+      draw();
       fit(active);
-      status("已反轉點位順序；時間戳記維持原值。");
+      status(message, !ascending && !descending && originalTimes.length >= 2);
     };
     $("shiftTimeBtn").onclick = () => {
       if (!getActive()) return;
